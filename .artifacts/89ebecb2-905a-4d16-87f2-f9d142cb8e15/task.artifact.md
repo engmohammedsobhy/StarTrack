@@ -1,0 +1,6 @@
+- [x] Update `Person` model to include `knownForDepartment`
+- [x] Add `clearAll` method to `FavoritesNotifier`
+- [x] Overhaul Favorites Empty State UI
+- [x] Refine Favorite Card design with "Known For" badge
+- [x] Add "Clear All" action and confirmation dialog to Favorites Screen
+- [x] Verify responsiveness and visual polish (Cyan accents, Poppins font)
