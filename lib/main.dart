@@ -13,22 +13,22 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'StarTrack',
+      title: 'Persona',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.red,
+          seedColor: Colors.grey,
           brightness: Brightness.light,
-          primary: Colors.red,
+          primary: Colors.black,
         ),
         useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(),
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(),
         appBarTheme: AppBarTheme(
           centerTitle: false,
           elevation: 0,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
-          titleTextStyle: GoogleFonts.poppins(
+          titleTextStyle: GoogleFonts.plusJakartaSans(
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
@@ -37,25 +37,52 @@ class MyApp extends StatelessWidget {
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.red,
+          seedColor: Colors.white,
           brightness: Brightness.dark,
-          primary: Colors.red,
-          secondary: Colors.redAccent,
+          primary: Colors.white,
+          secondary: Colors.grey,
+          surface: const Color(0xFF121212),
         ),
         useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(
+          ThemeData.dark().textTheme,
+        ),
         appBarTheme: AppBarTheme(
           centerTitle: false,
           elevation: 0,
-          backgroundColor: const Color(0xFF1C1B1F),
-          surfaceTintColor: Colors.red.withValues(alpha: 0.1),
-          titleTextStyle: GoogleFonts.poppins(
+          backgroundColor: const Color(0xFF121212),
+          surfaceTintColor: Colors.transparent,
+          titleTextStyle: GoogleFonts.plusJakartaSans(
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFF121212),
+          indicatorColor: Colors.white.withValues(alpha: 0.1),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const IconThemeData(color: Colors.white);
+            }
+            return const IconThemeData(color: Colors.grey);
+          }),
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              );
+            }
+            return GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey,
+            );
+          }),
+        ),
         cardTheme: CardThemeData(
           color: const Color(0xFF1E1E1E),
           shape: RoundedRectangleBorder(

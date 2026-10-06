@@ -14,15 +14,52 @@ class ChatNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
 
   ChatNotifier() : super(const AsyncData([]));
 
-  Future<void> sendMessage(String text) async {
+  Future<void> sendMessage(
+    String text, {
+    String? entityName,
+    String? entityTitle,
+  }) async {
     final currentMessages = state.value ?? [];
     final userMessage = ChatMessage(text: text, isUser: true);
 
     state = AsyncData([...currentMessages, userMessage]);
     state = const AsyncLoading<List<ChatMessage>>().copyWithPrevious(state);
 
-    const systemPrompt =
+    if (entityName != null &&
+        entityName.isNotEmpty &&
+        entityTitle != null &&
+        entityTitle.isNotEmpty) {
+      try {
+        final response = await _dio.post(
+          '${AppConstants.ragBackendUrl}/api/v1/rag/query',
+          data: {
+            "entity_name": entityName,
+            "wikipedia_title": entityTitle,
+            "user_query": text,
+            "top_k": 3,
+          },
+          options: Options(
+            headers: {"Content-Type": "application/json"},
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 15),
+          ),
+        );
+
+        final aiResponse = response.data['answer'] as String;
+
+        final botMessage = ChatMessage(text: aiResponse, isUser: false);
+        state = AsyncData([...state.value!, botMessage]);
+        return; // Success, skip fallback
+      } catch (_) {
+        // Fallback to Groq API on any error (e.g., backend not running)
+      }
+    }
+
+    String systemPrompt =
         "You are a helpful and family-friendly celebrity assistant. You provide information about actors and singers. You must ensure all responses are appropriate for all ages and avoid any adult, offensive, or controversial content.";
+    if (entityName != null && entityName.isNotEmpty) {
+      systemPrompt += "\n\nThe user is asking about $entityName.";
+    }
 
     try {
       final messages = [
@@ -35,7 +72,7 @@ class ChatNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
 
       final response = await _dio.post(
         '${AppConstants.groqBaseUrl}/chat/completions',
-        data: {"model": "llama-3.3-70b-versatile", "messages": messages},
+        data: {"model": "openai/gpt-oss-120b", "messages": messages},
         options: Options(
           headers: {
             "Authorization": "Bearer ${AppConstants.groqApiKey}",

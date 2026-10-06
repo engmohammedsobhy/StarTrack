@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/chat_provider.dart';
 
+import 'package:itiproject/features/home/data/models/entity_model.dart';
+
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  final KnowledgeEntity? entity;
+  const ChatScreen({super.key, this.entity});
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -13,6 +17,23 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.entity != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final chatState = ref.read(chatProvider);
+        if (chatState.valueOrNull == null || chatState.valueOrNull!.isEmpty) {
+          ref.read(chatProvider.notifier).sendMessage(
+            "Who is ${widget.entity!.title}?",
+            entityName: widget.entity!.title,
+            entityTitle: widget.entity!.title,
+          );
+        }
+      });
+    }
+  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -31,7 +52,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(chatProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('StarTrack AI'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Persona AI'), 
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bookmark_outline),
+            onPressed: () => context.push('/favorites'),
+          ),
+        ],
+      ),
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 800),
@@ -121,7 +151,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'StarTrack AI',
+            'Persona AI',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.red,
@@ -198,7 +228,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _handleSend() {
     if (_controller.text.trim().isNotEmpty) {
-      ref.read(chatProvider.notifier).sendMessage(_controller.text.trim());
+      ref.read(chatProvider.notifier).sendMessage(
+        _controller.text.trim(), 
+        entityName: widget.entity?.title,
+        entityTitle: widget.entity?.title,
+      );
       _controller.clear();
       FocusScope.of(context).unfocus();
     }
