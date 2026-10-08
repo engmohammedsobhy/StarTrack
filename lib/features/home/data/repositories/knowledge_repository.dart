@@ -1,10 +1,12 @@
-import 'dart:convert';
+import 'dart:io' show Platform;
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/entity_model.dart';
 import '../models/persona_search_result.dart';
-import '../../../../core/constants.dart';
 import '../../../person_details/data/models/rag_response_model.dart';
+import '../../../../core/services/persona_label_service.dart';
 
 final knowledgeRepositoryProvider = Provider<KnowledgeRepository>((ref) {
   return KnowledgeRepository(Dio());
@@ -21,699 +23,154 @@ class KnowledgeRepository {
   final Map<String, String> _bioCache = {};
   final Map<String, List<String>> _galleryCache = {};
 
-  final Set<String> _seenEntityTitles = {};
-  final Map<String, String?> _categoryContinues = {};
-
-  final List<String> _categories = const [
-    'Category:Living_people',
-    'Category:Academy_Award_winners',
-    'Category:21st-century_American_actors',
-    'Category:21st-century_musicians',
-    'Category:Grammy_Award_winners',
-    'Category:Presidents_of_the_United_States',
-    'Category:Nobel_laureates',
-    'Category:20th-century_philosophers',
-    'Category:Association_football_players',
-    'Category:Formula_One_drivers',
-    'Category:World_Heavyweight_boxing_champions',
-    'Category:Prime_Ministers_of_the_United_Kingdom',
-    'Category:Tech_entrepreneurs',
-    'Category:Film_directors',
-    'Category:National_Basketball_Association_players',
-    'Category:21st-century_American_actresses',
-    'Category:Fellows_of_the_Royal_Society',
+  static const List<String> defaultPersonaPool = [
+    'Tom Brady', 'Christian Bale', 'Augustus', 'Gal Gadot', 'Socrates',
+    'Elizabeth II', 'Leonardo da Vinci', 'Pablo Picasso', 'Steven Spielberg',
+    'Robert De Niro', 'Nelson Mandela', 'Cleopatra', 'Albert Einstein',
+    'Marie Curie', 'Alexander the Great', 'Marilyn Monroe', 'Muhammad Ali',
+    'Julius Caesar', 'Audrey Hepburn', 'Isaac Newton', 'Zendaya',
+    'Winston Churchill', 'Cillian Murphy', 'Frida Kahlo', 'Bruce Lee', 'Lionel Messi',
+    'Keanu Reeves', 'Scarlett Johansson', 'Nikola Tesla', 'Vincent van Gogh',
+    'Martin Luther King Jr.', 'Mahatma Gandhi', 'Rosa Parks', 'Amelia Earhart',
+    'William Shakespeare', 'Wolfgang Amadeus Mozart', 'Ludwig van Beethoven', 'Aristotle',
+    'Plato', 'Joan of Arc', 'Genghis Khan', 'George Washington', 'Abraham Lincoln',
+    'Thomas Edison', 'Henry Ford', 'Walt Disney', 'Charlie Chaplin', 'Elvis Presley',
+    'Michael Jackson', 'Madonna', 'John Lennon', 'Paul McCartney', 'David Bowie',
+    'Freddie Mercury', 'Queen Victoria', 'Charles Darwin', 'Stephen Hawking',
+    'Alan Turing', 'Steve Jobs', 'Bill Gates', 'Mark Zuckerberg', 'Elon Musk',
+    'Neil Armstrong', 'Buzz Aldrin', 'Yuri Gagarin', 'Jackie Robinson', 'Babe Ruth',
+    'Michael Jordan', 'Serena Williams', 'Roger Federer', 'Cristiano Ronaldo',
+    'Pele', 'Diego Maradona', 'Usain Bolt', 'Simone Biles', 'Malala Yousafzai',
+    'Mother Teresa', 'Dalai Lama', 'Pope Francis', 'Kofi Annan', 'Margaret Thatcher',
+    'Angela Merkel', 'Indira Gandhi', 'J.R.R. Tolkien', 'J.K. Rowling', 'Stephen King',
+    'Agatha Christie', 'Ernest Hemingway', 'Mark Twain', 'Charles Dickens',
+    'Jane Austen', 'Edgar Allan Poe', 'Virginia Woolf', 'Sylvia Plath', 'Maya Angelou',
   ];
 
-  static const Map<String, String> _curatedPeoplePool = {
-    'Albert Einstein': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Einstein_1921_by_F_Schmutzer_-_restoration.jpg/600px-Einstein_1921_by_F_Schmutzer_-_restoration.jpg',
-    'Marie Curie': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Marie_Curie_c._1920s.jpg/600px-Marie_Curie_c._1920s.jpg',
-    'Isaac Newton': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/GodfreyKneller-IsaacNewton-1689.jpg/600px-GodfreyKneller-IsaacNewton-1689.jpg',
-    'Stephen Hawking': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Stephen_Hawking.StarChild.jpg/600px-Stephen_Hawking.StarChild.jpg',
-    'Charles Darwin': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Charles_Darwin_seated_crop.jpg/600px-Charles_Darwin_seated_crop.jpg',
-    'Nikola Tesla': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/Tesla_circa_1890.jpeg/600px-Tesla_circa_1890.jpeg',
-    'Thomas Edison': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Thomas_Edison2.jpg/600px-Thomas_Edison2.jpg',
-    'Galileo Galilei': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Justus_Sustermans_-_Galileo_Galilei%2C_1636.jpg/600px-Justus_Sustermans_-_Galileo_Galilei%2C_1636.jpg',
-    'Ada Lovelace': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Ada_Lovelace_portrait.jpg/600px-Ada_Lovelace_portrait.jpg',
-    'Alan Turing': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Alan_Turing_Aged_16.jpg/600px-Alan_Turing_Aged_16.jpg',
-    'Steve Jobs': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Steve_Jobs_Headshot_2010-CROP_%28cropped_2%29.jpg/600px-Steve_Jobs_Headshot_2010-CROP_%28cropped_2%29.jpg',
-    'Bill Gates': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Bill_Gates_2017_%28cropped%29.jpg/600px-Bill_Gates_2017_%28cropped%29.jpg',
-    'Elon Musk': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Elon_Musk_Royal_Society_%28crop2%29.jpg/600px-Elon_Musk_Royal_Society_%28crop2%29.jpg',
-    'Leonardo da Vinci': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Francesco_Melzi_-_Portrait_of_Leonardo.jpg/600px-Francesco_Melzi_-_Portrait_of_Leonardo.jpg',
-    'Abraham Lincoln': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Abraham_Lincoln_O-77_by_Gardner%2C_1863-crop.jpg/600px-Abraham_Lincoln_O-77_by_Gardner%2C_1863-crop.jpg',
-    'George Washington': 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Gilbert_Stuart_Williamstown_Portrait_of_George_Washington.jpg/600px-Gilbert_Stuart_Williamstown_Portrait_of_George_Washington.jpg',
-    'Barack Obama': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/President_Barack_Obama.jpg/600px-President_Barack_Obama.jpg',
-    'Winston Churchill': 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Sir_Winston_Churchill_-_Lady_Ittington_crop.jpg/600px-Sir_Winston_Churchill_-_Lady_Ittington_crop.jpg',
-    'Mahatma Gandhi': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Mahatma-Gandhi-studio-1931.jpg/600px-Mahatma-Gandhi-studio-1931.jpg',
-    'Nelson Mandela': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Nelson_Mandela_1994.jpg/600px-Nelson_Mandela_1994.jpg',
-    'Martin Luther King Jr.': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Martin_Luther_King%2C_Jr._NYWTS_6.jpg/600px-Martin_Luther_King%2C_Jr._NYWTS_6.jpg',
-    'Leonardo DiCaprio': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Leonardo_DiCap_Nov_08.jpg/600px-Leonardo_DiCap_Nov_08.jpg',
-    'Tom Cruise': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Tom_Cruise_by_Gage_Skidmore_2.jpg/600px-Tom_Cruise_by_Gage_Skidmore_2.jpg',
-    'Marilyn Monroe': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Marilyn_Monroe_-_1953.jpg/600px-Marilyn_Monroe_-_1953.jpg',
-    'Wolfgang Amadeus Mozart': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Wolfgang-amadeus-mozart_1.jpg/600px-Wolfgang-amadeus-mozart_1.jpg',
-    'Ludwig van Beethoven': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Beethoven.jpg/600px-Beethoven.jpg',
-    'Michael Jackson': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Michael_Jackson_in_1988.jpg/600px-Michael_Jackson_in_1988.jpg',
-    'William Shakespeare': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Shakespeare.jpg/600px-Shakespeare.jpg',
-    'Vincent van Gogh': 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Vincent_van_Gogh_-_Self-Portrait_-_Google_Art_Project.jpg/600px-Vincent_van_Gogh_-_Self-Portrait_-_Google_Art_Project.jpg',
-    'Pablo Picasso': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Pablo_picasso_1962.jpg/600px-Pablo_picasso_1962.jpg',
-    'Lionel Messi': 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-World-Cup_%28cropped%29.jpg/600px-Lionel-Messi-Argentina-2022-World-Cup_%28cropped%29.jpg',
-    'Cristiano Ronaldo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Cristiano_Ronaldo_2018.jpg/600px-Cristiano_Ronaldo_2018.jpg',
-  };
+  static List<KnowledgeEntity> get _initialSeedPersonas => [
+    KnowledgeEntity(
+      id: 'Q937',
+      title: 'Albert Einstein',
+      description: 'German-born theoretical physicist (1879–1955)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/2/28/Albert_Einstein_Head_cleaned.jpg/960px-Albert_Einstein_Head_cleaned.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Albert_Einstein',
+    ),
+    KnowledgeEntity(
+      id: 'Q7186',
+      title: 'Marie Curie',
+      description: 'Polish-French physicist and chemist (1867–1934)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Marie_Curie_c._1920s.jpg/960px-Marie_Curie_c._1920s.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Marie_Curie',
+    ),
+    KnowledgeEntity(
+      id: 'Q762',
+      title: 'Leonardo da Vinci',
+      description: 'Italian polymath (1452–1519)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Francesco_Melzi_-_Portrait_of_Leonardo_%28colour_correction%29.png/960px-Francesco_Melzi_-_Portrait_of_Leonardo_%28colour_correction%29.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Leonardo_da_Vinci',
+    ),
+    KnowledgeEntity(
+      id: 'Q45785',
+      title: 'Christian Bale',
+      description: 'English actor (born 1974)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Christian_Bale-7837.jpg/960px-Christian_Bale-7837.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Christian_Bale',
+    ),
+    KnowledgeEntity(
+      id: 'Q185064',
+      title: 'Gal Gadot',
+      description: 'Israeli actress (born 1985)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Gal_Gadot_by_Gage_Skidmore_3.jpg/960px-Gal_Gadot_by_Gage_Skidmore_3.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Gal_Gadot',
+    ),
+    KnowledgeEntity(
+      id: 'Q202674',
+      title: 'Cillian Murphy',
+      description: 'Irish actor (born 1976)',
+      thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/ed/Cillian_Murphy_at_the_London_premier_of_Steve_in_September_2025_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Cillian_Murphy',
+    ),
+    KnowledgeEntity(
+      id: 'Q935',
+      title: 'Isaac Newton',
+      description: 'English polymath (1642–1727)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f7/Portrait_of_Sir_Isaac_Newton%2C_1689_%28brightened%29.jpg/960px-Portrait_of_Sir_Isaac_Newton%2C_1689_%28brightened%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Isaac_Newton',
+    ),
+    KnowledgeEntity(
+      id: 'Q9036',
+      title: 'Nikola Tesla',
+      description: 'Serbian-American engineer and inventor (1856–1943)',
+      thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/79/Tesla_circa_1890.jpeg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Nikola_Tesla',
+    ),
+    KnowledgeEntity(
+      id: 'Q19837',
+      title: 'Steve Jobs',
+      description: 'American businessman and investor (1955–2011)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Steve_Jobs_Headshot_2010_%28cropped_4%29.jpg/960px-Steve_Jobs_Headshot_2010_%28cropped_4%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Steve_Jobs',
+    ),
+    KnowledgeEntity(
+      id: 'Q615',
+      title: 'Lionel Messi',
+      description: 'Argentine footballer (born 1987)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/960px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Lionel_Messi',
+      labels: const ['Argentina', 'Football Player', 'Football Legend', 'World Cup Champion', 'FC Barcelona', 'Inter Miami'],
+    ),
+    KnowledgeEntity(
+      id: 'Q36834',
+      title: 'Tom Brady',
+      description: 'American football player and commentator (born 1977)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/25th_Laureus_World_Sports_Awards_-_Red_Carpet_-_Tom_Brady_-_240422_191334_%28cropped%29_%28cropped%29.jpg/960px-25th_Laureus_World_Sports_Awards_-_Red_Carpet_-_Tom_Brady_-_240422_191334_%28cropped%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Tom_Brady',
+      labels: const ['NFL Legend', 'Quarterback', '7x Super Bowl Champion', 'American Football'],
+    ),
+    KnowledgeEntity(
+      id: 'Q36949',
+      title: 'Robert De Niro',
+      description: 'American actor (born 1943)',
+      thumbnailUrl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c1/Robert_de_Niro_Cannes_Film_Festival_%283x4_cropped%29.jpg/960px-Robert_de_Niro_Cannes_Film_Festival_%283x4_cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Robert_De_Niro',
+      labels: const ['Cinema Legend', 'Academy Award Winner', 'The Godfather', 'Hollywood Star'],
+    ),
+    KnowledgeEntity(
+      id: 'Q217036',
+      title: 'Sonic the Hedgehog',
+      description: 'Iconic blue hedgehog video game character created by SEGA',
+      thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/en/a/a4/Sonic_the_Hedgehog_%28character%29.png',
+      wikipediaUrl: 'https://en.wikipedia.org/wiki/Sonic_the_Hedgehog_(character)',
+      labels: const ['Blue', 'Hedgehog', 'Video Game Character', 'Super Speed', 'SEGA Icon', 'Gaming Legend'],
+    ),
+  ];
+
+  List<String> get _candidateBaseUrls {
+    if (!kIsWeb && Platform.isAndroid) {
+      return const ['http://10.0.2.2:8000', 'http://127.0.0.1:8000', 'http://localhost:8000'];
+    }
+    return const ['http://127.0.0.1:8000', 'http://localhost:8000', 'http://10.0.2.2:8000'];
+  }
 
   KnowledgeRepository(this._dio);
 
-  /// Helper function to transform thumbnail URLs into high-resolution images safely handled by Wikimedia CDN.
-  /// Ensures pre-encoded URLs aren't broken and prevents double percent-encoding.
-  String _getHighResImageUrl(String url) {
-    if (url.isEmpty) return url;
-    String cleaned = url.trim();
-    if (cleaned.startsWith('//')) {
-      cleaned = 'https:$cleaned';
-    } else if (cleaned.startsWith('http://')) {
-      cleaned = cleaned.replaceFirst('http://', 'https://');
-    }
-    return cleaned;
-  }
-
-  /// Helper function to perform client-side checks for direct Wikipedia API calls.
-  /// Non-destructive exclusion-based filter.
-  /// Rejects ONLY explicit non-person entities (movies, albums, wars, cities, etc.)
-  /// while allowing real people, historical figures, voice actors, musical artists, and characters.
-  bool _isStrictlyPerson(String title, String? description, String? extract) {
-    if (title.trim().isEmpty) return false;
-
-    final lowerTitle = title.trim().toLowerCase();
-    final lowerDesc = (description ?? '').trim().toLowerCase();
-    final lowerExtract = (extract ?? '').trim().toLowerCase();
-    final fullText = '$lowerTitle $lowerDesc $lowerExtract';
-
-    // 1. Immediate Auto-Rejection Rules for Titles (Prefixes or Disambiguations)
-    const titlePrefixRejections = [
-      'list of ',
-      'category:',
-      'outline of ',
-      'history of ',
-      'timeline of ',
-      'index of ',
-      'disambiguation',
-      'file:',
-      'template:',
-      'culture of ',
-      'music of ',
-      'cinema of ',
-      'economy of ',
-      'geography of ',
-      'demographics of ',
-    ];
-
-    for (final prefix in titlePrefixRejections) {
-      if (lowerTitle.startsWith(prefix) || lowerTitle == prefix.trim()) {
-        return false;
-      }
-    }
-
-    if (lowerTitle.contains('disambiguation') ||
-        lowerDesc.startsWith('list of ') ||
-        lowerDesc.startsWith('category:')) {
-      return false;
-    }
-
-    // 2. Standalone broad topic titles
-    const exactNonPersonTitles = {
-      'world',
-      'hello, world',
-      'hello world',
-      'hello, world!',
-      'world war',
-      'world war i',
-      'world war ii',
-      'world war 1',
-      'world war 2',
-      'science',
-      'technology',
-      'philosophy',
-      'politics',
-      'art',
-      'music',
-      'cinema',
-      'film',
-      'history',
-      'geography',
-      'mathematics',
-      'physics',
-      'chemistry',
-      'biology',
-      'literature',
-      'sports',
-      'football',
-      'basketball',
-      'earth',
-      'nature',
-      'universe',
-      'code',
-      'software',
-      'program',
-      'manifesto',
-      'event',
-      'game',
-      'sport',
-    };
-
-    if (exactNonPersonTitles.contains(lowerTitle)) {
-      return false;
-    }
-
-    // 3. Parenthetical non-person entity types in title
-    if (lowerTitle.contains('(film)') ||
-        lowerTitle.contains('(movie)') ||
-        lowerTitle.contains('(album)') ||
-        lowerTitle.contains('(song)') ||
-        lowerTitle.contains('(book)') ||
-        lowerTitle.contains('(novel)') ||
-        lowerTitle.contains('(series)') ||
-        lowerTitle.contains('(tv series)') ||
-        lowerTitle.contains('(television series)') ||
-        lowerTitle.contains('(season)') ||
-        lowerTitle.contains('(video game)') ||
-        lowerTitle.contains('(game)') ||
-        lowerTitle.contains('(election)') ||
-        lowerTitle.contains('(soundtrack)') ||
-        lowerTitle.contains('(constituency)') ||
-        lowerTitle.contains('(district)') ||
-        lowerTitle.contains('(city)') ||
-        lowerTitle.contains('(country)') ||
-        lowerTitle.contains('(company)') ||
-        lowerTitle.contains('(corporation)') ||
-        lowerTitle.contains('(stadium)') ||
-        lowerTitle.contains('(university)') ||
-        lowerTitle.contains('(school)') ||
-        lowerTitle.contains('(airport)') ||
-        lowerTitle.contains('(station)') ||
-        lowerTitle.contains('(party)') ||
-        lowerTitle.contains('(river)') ||
-        lowerTitle.contains('(mountain)')) {
-      return false;
-    }
-
-    // 4. Title term rejections for explicit non-persons
-    const titleNonPersonTerms = [
-      'world war',
-      'battle of',
-      'treaty of',
-      'election',
-      'referendum',
-      'university of',
-      'stadium',
-      'airport',
-      'station',
-      'corporation',
-      'manifesto',
-      'discography',
-      'filmography',
-      'military campaign',
-    ];
-
-    for (final term in titleNonPersonTerms) {
-      if (lowerTitle.contains(term)) {
-        return false;
-      }
-    }
-
-    // Person role/identity indicators
-    final hasPersonRole = fullText.contains('actor') ||
-        fullText.contains('actress') ||
-        fullText.contains('director') ||
-        fullText.contains('producer') ||
-        fullText.contains('filmmaker') ||
-        fullText.contains('singer') ||
-        fullText.contains('musician') ||
-        fullText.contains('songwriter') ||
-        fullText.contains('composer') ||
-        fullText.contains('politician') ||
-        fullText.contains('scientist') ||
-        fullText.contains('physicist') ||
-        fullText.contains('chemist') ||
-        fullText.contains('biologist') ||
-        fullText.contains('mathematician') ||
-        fullText.contains('philosopher') ||
-        fullText.contains('author') ||
-        fullText.contains('writer') ||
-        fullText.contains('poet') ||
-        fullText.contains('artist') ||
-        fullText.contains('painter') ||
-        fullText.contains('sculptor') ||
-        fullText.contains('athlete') ||
-        fullText.contains('footballer') ||
-        fullText.contains('boxer') ||
-        fullText.contains('king') ||
-        fullText.contains('queen') ||
-        fullText.contains('president') ||
-        fullText.contains('prime minister') ||
-        fullText.contains('emperor') ||
-        fullText.contains('monarch') ||
-        fullText.contains('general') ||
-        fullText.contains('inventor') ||
-        fullText.contains('fictional character') ||
-        fullText.contains('character in') ||
-        lowerDesc.startsWith('character') ||
-        fullText.contains('playable character') ||
-        fullText.contains('voice actor') ||
-        fullText.contains('voiced by') ||
-        fullText.contains('portrayed by') ||
-        fullText.contains('played by') ||
-        fullText.contains('born ') ||
-        fullText.contains('(born ');
-
-    // 5. Explicit non-person category indicators in title or description
-    final isMovieOrFilm = lowerDesc.contains(' film') ||
-        lowerDesc.startsWith('film ') ||
-        lowerDesc.contains('film by') ||
-        lowerDesc.contains('feature film') ||
-        lowerDesc.contains('short film') ||
-        lowerDesc.contains('animated film') ||
-        lowerDesc.contains('horror film') ||
-        lowerDesc.contains('comedy film') ||
-        lowerDesc.contains('thriller film') ||
-        lowerDesc.contains('action film') ||
-        lowerDesc.contains('movie by') ||
-        lowerDesc.contains('is a movie');
-
-    if (isMovieOrFilm && !hasPersonRole) {
-      return false;
-    }
-
-    final isAlbumOrSong = lowerDesc.contains('album') ||
-        lowerDesc.contains('song') ||
-        lowerDesc.contains('single by') ||
-        lowerDesc.contains('studio album') ||
-        lowerDesc.contains('debut album') ||
-        lowerDesc.contains('compilation album') ||
-        lowerDesc.contains('discography');
-
-    if (isAlbumOrSong && !hasPersonRole) {
-      return false;
-    }
-
-    final isTVSeries = lowerDesc.contains('television series') ||
-        lowerDesc.contains('tv series') ||
-        lowerDesc.contains('animated series') ||
-        lowerDesc.contains('sitcom');
-
-    if (isTVSeries && !hasPersonRole) {
-      return false;
-    }
-
-    final isVideoGame = lowerDesc.contains('video game') ||
-        lowerDesc.contains('action-adventure game') ||
-        lowerDesc.contains('role-playing game') ||
-        lowerDesc.contains('first-person shooter');
-
-    if (isVideoGame && !hasPersonRole) {
-      return false;
-    }
-
-    final isCompanyOrOrg = lowerDesc.contains('company') ||
-        lowerDesc.contains('corporation') ||
-        lowerDesc.contains('multinational technology') ||
-        lowerDesc.contains('racing team');
-
-    if (isCompanyOrOrg && !hasPersonRole) {
-      return false;
-    }
-
-    final isVehicleOrProduct = lowerDesc.contains('motor vehicle') ||
-        lowerDesc.contains('automobile') ||
-        lowerDesc.contains('car model') ||
-        lowerDesc.contains('aircraft');
-
-    if (isVehicleOrProduct && !hasPersonRole) {
-      return false;
-    }
-
-    final isEventOrWar = lowerDesc.contains('event') ||
-        lowerDesc.contains('pay-per-view') ||
-        lowerDesc.contains('battle of') ||
-        lowerDesc.contains('referendum') ||
-        lowerDesc.contains('election');
-
-    if (isEventOrWar && !hasPersonRole) {
-      return false;
-    }
-
-    final isTechOrMath = lowerDesc.contains('algorithm') ||
-        lowerDesc.contains('neural network') ||
-        lowerDesc.contains('software') ||
-        lowerDesc.contains('computer program') ||
-        lowerDesc.contains('metric used');
-
-    if (isTechOrMath && !hasPersonRole) {
-      return false;
-    }
-
-    final isGeographic = lowerDesc.contains('country in') ||
-        lowerDesc.contains('city in') ||
-        lowerDesc.contains('capital of') ||
-        lowerDesc.contains('municipality in') ||
-        lowerDesc.contains('village in') ||
-        lowerDesc.contains('town in') ||
-        lowerDesc.contains('river in') ||
-        lowerDesc.contains('mountain in') ||
-        lowerDesc.contains('stadium in') ||
-        lowerDesc.contains('airport in') ||
-        lowerDesc.contains('station in');
-
-    if (isGeographic && !hasPersonRole) {
-      return false;
-    }
-
-    // ALLOW EVERYTHING ELSE!
-    return true;
-  }
-
-  Future<List<KnowledgeEntity>> getTrendingEntities({int page = 1, bool refresh = false}) async {
-    try {
-      if (page == 1 || refresh) {
-        _seenEntityTitles.clear();
-        _categoryContinues.clear();
-      }
-
-      const int pageSize = 12;
-      final List<KnowledgeEntity> entities = [];
-      final Set<String> candidateTitles = {};
-
-      // 1. Curated Famous People Pool across politics, science, cinema, music, sports, literature, art
-      final List<String> famousPeople = [
-        // Science & Technology
-        'Albert Einstein', 'Marie Curie', 'Isaac Newton', 'Stephen Hawking', 'Charles Darwin',
-        'Nikola Tesla', 'Thomas Edison', 'Galileo Galilei', 'Richard Feynman', 'Ada Lovelace',
-        'Alan Turing', 'Carl Sagan', 'James Clerk Maxwell', 'Louis Pasteur', 'Alexander Fleming',
-        'Steve Jobs', 'Bill Gates', 'Elon Musk', 'Mark Zuckerberg', 'Jeff Bezos',
-        'Tim Berners-Lee', 'Linus Torvalds', 'Larry Page', 'Sergey Brin', 'Satya Nadella',
-        'Sundar Pichai', 'Jensen Huang', 'Sam Altman', 'Warren Buffett', 'Tim Cook',
-        'Sigmund Freud', 'Carl Jung', 'Niels Bohr', 'Erwin Schrödinger', 'Enrico Fermi',
-        'Alexander Graham Bell', 'Guglielmo Marconi', 'Dmitri Mendeleev', 'Michael Faraday', 'Gregor Mendel',
-
-        // Cinema & Performing Arts
-        'Leonardo DiCaprio', 'Tom Cruise', 'Brad Pitt', 'Angelina Jolie', 'Scarlett Johansson',
-        'Morgan Freeman', 'Tom Hanks', 'Robert De Niro', 'Al Pacino', 'Meryl Streep',
-        'Charlie Chaplin', 'Marilyn Monroe', 'Audrey Hepburn', 'Marlon Brando', 'Clint Eastwood',
-        'Steven Spielberg', 'Martin Scorsese', 'Quentin Tarantino', 'Christopher Nolan', 'Alfred Hitchcock',
-        'Stanley Kubrick', 'Akira Kurosawa', 'Denzel Washington', 'Viola Davis', 'Cate Blanchett',
-        'Robert Downey Jr.', 'Keanu Reeves', 'Johnny Depp', 'Samuel L. Jackson', 'Harrison Ford',
-        'Will Smith', 'Heath Ledger', 'Joaquin Phoenix', 'Cillian Murphy', 'Margot Robbie',
-        'Timothée Chalamet', 'Zendaya', 'Florence Pugh', 'Pedro Pascal', 'Ryan Gosling',
-        'Emma Stone', 'Christian Bale', 'Hugh Jackman', 'Matt Damon', 'Ben Affleck',
-        'Kate Winslet', 'Keira Knightley', 'Ian McKellen', 'Patrick Stewart', 'Anthony Hopkins',
-        'Dwayne Johnson', 'Anne Hathaway', 'Natalie Portman', 'Chris Hemsworth', 'Chris Evans',
-        'Gal Gadot', 'Tom Holland', 'Daniel Day-Lewis', 'Gary Oldman', 'Ke Huy Quan',
-
-        // Music
-        'Wolfgang Amadeus Mozart', 'Ludwig van Beethoven', 'Johann Sebastian Bach', 'Frédéric Chopin', 'Pyotr Ilyich Tchaikovsky',
-        'Michael Jackson', 'Elvis Presley', 'Bob Marley', 'John Lennon', 'Paul McCartney',
-        'Freddie Mercury', 'David Bowie', 'Prince', 'Madonna', 'Beyoncé',
-        'Taylor Swift', 'Rihanna', 'Eminem', 'Tupac Shakur', 'Snoop Dogg',
-        'Dr. Dre', 'Jay-Z', 'Kanye West', 'Drake', 'Adele',
-        'Lady Gaga', 'Bruno Mars', 'Ed Sheeran', 'Justin Bieber', 'Billie Eilish',
-        'Ariana Grande', 'Elton John', 'Frank Sinatra', 'Stevie Wonder', 'Louis Armstrong',
-        'Miles Davis', 'Luciano Pavarotti', 'Bob Dylan', 'Bruce Springsteen', 'Whitney Houston',
-
-        // Politics & World Leaders
-        'Abraham Lincoln', 'George Washington', 'Thomas Jefferson', 'Franklin D. Roosevelt', 'Theodore Roosevelt',
-        'John F. Kennedy', 'Barack Obama', 'Winston Churchill', 'Queen Elizabeth II', 'Mahatma Gandhi',
-        'Nelson Mandela', 'Martin Luther King Jr.', 'Julius Caesar', 'Alexander the Great', 'Napoleon',
-        'Cleopatra', 'Augustus', 'Marcus Aurelius', 'Joan of Arc', 'Catherine the Great',
-        'Otto von Bismarck', 'Charles de Gaulle', 'Indira Gandhi', 'Margaret Thatcher', 'Lee Kuan Yew',
-        'Mikhail Gorbachev', 'Angela Merkel', 'Benjamin Franklin', 'Simón Bolívar', 'Jawaharlal Nehru',
-        'Mustafa Kemal Atatürk', 'Sun Yat-sen', 'Kofi Annan', 'Dalai Lama', 'Pope John Paul II',
-
-        // Philosophy, Literature & Art
-        'Leonardo da Vinci', 'Vincent van Gogh', 'Pablo Picasso', 'Michelangelo', 'Claude Monet',
-        'Rembrandt', 'Salvador Dalí', 'Frida Kahlo', 'William Shakespeare', 'Homer',
-        'Dante Alighieri', 'Miguel de Cervantes', 'Leo Tolstoy', 'Fyodor Dostoevsky', 'Victor Hugo',
-        'Mark Twain', 'Charles Dickens', 'Jane Austen', 'Virginia Woolf', 'Ernest Hemingway',
-        'F. Scott Fitzgerald', 'Edgar Allan Poe', 'Agatha Christie', 'Arthur Conan Doyle', 'J.K. Rowling',
-        'Stephen King', 'George R.R. Martin', 'J.R.R. Tolkien', 'Gabriel García Márquez', 'Franz Kafka',
-        'Socrates', 'Plato', 'Aristotle', 'René Descartes', 'Immanuel Kant',
-        'Friedrich Nietzsche', 'Karl Marx', 'John Locke', 'Voltaire', 'Confucius',
-
-        // Sports
-        'Lionel Messi', 'Cristiano Ronaldo', 'Pelé', 'Diego Maradona', 'Johan Cruyff',
-        'Zinedine Zidane', 'Ronaldinho', 'Kylian Mbappé', 'Michael Jordan', 'LeBron James',
-        'Kobe Bryant', 'Shaquille O\'Neal', 'Stephen Curry', 'Muhammad Ali', 'Mike Tyson',
-        'Manny Pacquiao', 'Roger Federer', 'Rafael Nadal', 'Novak Djokovic', 'Serena Williams',
-        'Usain Bolt', 'Michael Phelps', 'Lewis Hamilton', 'Ayrton Senna', 'Michael Schumacher',
-        'Tiger Woods', 'Wayne Gretzky', 'Tom Brady', 'Simone Biles'
-      ];
-
-      final int startIndex = (page - 1) * pageSize;
-      if (startIndex < famousPeople.length) {
-        final int endIndex = (startIndex + pageSize).clamp(0, famousPeople.length);
-        candidateTitles.addAll(famousPeople.sublist(startIndex, endIndex));
-      }
-
-      // 2. Query Wikipedia Category APIs strictly targeting people
-      final List<String> categoryList = List.from(_categories);
-
-      int categoryOffset = 0;
-      while (candidateTitles.length < pageSize * 2 && categoryOffset < categoryList.length) {
-        final catIndex = ((page - 1) + categoryOffset) % categoryList.length;
-        final categoryName = categoryList[catIndex];
-        try {
-          final catTitles = await _fetchCategoryMembers(categoryName, refresh: refresh);
-          candidateTitles.addAll(catTitles);
-        } catch (_) {
-          // Ignore category errors
-        }
-        categoryOffset++;
-      }
-
-      // Process Candidate Summaries
-      if (candidateTitles.isNotEmpty) {
-        final futures = candidateTitles.map((title) async {
-          if (_seenEntityTitles.contains(title.toLowerCase())) return null;
-          return await _fetchPageSummary(title);
-        });
-
-        final results = await Future.wait(futures);
-        for (var entity in results) {
-          if (entity != null &&
-              _isValidEntity(entity) &&
-              _isStrictlyPerson(entity.title, entity.description, entity.description) &&
-              !_seenEntityTitles.contains(entity.title.toLowerCase())) {
-            entities.add(entity);
-            _seenEntityTitles.add(entity.title.toLowerCase());
-            if (entities.length >= pageSize) break;
-          }
-        }
-      }
-
-      // 3. Clean up and apply strict person verification to ALL fetched results before returning
-      final filteredEntities = entities.where((entity) {
-        return _isValidEntity(entity) && _isStrictlyPerson(entity.title, entity.description, entity.description);
-      }).toList();
-
-      return filteredEntities;
-    } catch (e) {
-      throw Exception('Error fetching trending entities: $e');
-    }
-  }
-
-  Future<List<KnowledgeEntity>> getCategoryEntities(String categoryName, {int limit = 20, bool refresh = false}) async {
-    try {
-      if (refresh) {
-        _categoryContinues.remove(categoryName);
-      }
-      final members = await _fetchCategoryMembers(categoryName, refresh: refresh);
-      final List<KnowledgeEntity> entities = [];
-
-      for (final title in members) {
-        if (_seenEntityTitles.contains(title.toLowerCase())) continue;
-        final entity = await _fetchPageSummary(title);
-        if (entity != null &&
-            _isValidEntity(entity) &&
-            _isStrictlyPerson(entity.title, entity.description, entity.description)) {
-          entities.add(entity);
-          _seenEntityTitles.add(entity.title.toLowerCase());
-          if (entities.length >= limit) break;
-        }
-      }
-      return entities;
-    } catch (e) {
-      return [];
-    }
-  }
-
-  bool _isValidEntity(KnowledgeEntity entity) {
-    if (entity.title.isEmpty) return false;
-    final thumb = entity.thumbnailUrl;
-    if (thumb == null || thumb.trim().isEmpty) return false;
-
-    final lowerTitle = entity.title.toLowerCase();
-    if (lowerTitle.startsWith('list of') ||
-        lowerTitle.startsWith('category:') ||
-        lowerTitle.startsWith('file:') ||
-        lowerTitle.contains('disambiguation')) {
-      return false;
-    }
-    return _isStrictlyPerson(entity.title, entity.description, entity.description);
-  }
-
-  Future<KnowledgeEntity?> _fetchPageSummary(String title) async {
-    try {
-      final response = await _dio.get(
-        'https://en.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(title)}',
-        queryParameters: {
-          'pithumbsize': '600',
-        },
-        options: Options(headers: _headers),
-      );
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        final entity = _parseArticle(data);
-        final extract = data['extract'] as String?;
-        final desc = data['description'] as String?;
-        if (_isStrictlyPerson(entity.title, desc, extract)) {
-          return entity;
-        }
-      }
-    } catch (_) {
-      // Ignore individual page fetch failures
-    }
-    return null;
-  }
-
-  Future<List<String>> _fetchCategoryMembers(String categoryTitle, {bool refresh = false}) async {
-    if (refresh) {
-      _categoryContinues.remove(categoryTitle);
-    }
-    final continueToken = _categoryContinues[categoryTitle];
-    final Map<String, dynamic> queryParams = {
-      'action': 'query',
-      'list': 'categorymembers',
-      'cmtitle': categoryTitle,
-      'cmlimit': '50',
-      'cmtype': 'page',
-      'pithumbsize': '600',
-      'format': 'json',
-    };
-    if (continueToken != null) {
-      queryParams['cmcontinue'] = continueToken;
-    }
-
-    final response = await _dio.get(
-      'https://en.wikipedia.org/w/api.php',
-      queryParameters: queryParams,
-      options: Options(headers: _headers),
-    );
-
-    if (response.statusCode == 200 && response.data != null) {
-      final nextContinue = response.data['continue']?['cmcontinue'] as String?;
-      if (nextContinue != null) {
-        _categoryContinues[categoryTitle] = nextContinue;
-      }
-
-      final members = response.data['query']?['categorymembers'] as List<dynamic>?;
-      if (members != null) {
-        final memberTitles = members
-            .map((m) => m['title'] as String?)
-            .whereType<String>()
-            .where((t) => !t.startsWith('List of') && !t.startsWith('Category:'))
-            .toList();
-        return memberTitles;
-      }
-    }
-    return [];
-  }
-
-  KnowledgeEntity _parseArticle(Map<String, dynamic> article) {
-    final title = article['normalizedtitle'] ?? article['title'] ?? '';
-    final rawTitle = article['title'] ?? '';
-
-    String? thumbnailUrl = article['thumbnail']?['source'] ??
-        article['originalimage']?['source'] ??
-        article['original']?['source'] ??
-        _curatedPeoplePool[title] ??
-        _curatedPeoplePool[rawTitle];
-
-    if (thumbnailUrl != null) {
-      thumbnailUrl = _getHighResImageUrl(thumbnailUrl);
-    }
-
-    final extract = article['extract'] as String?;
-    final desc = article['description'] as String?;
-    final combinedDesc = (desc != null && desc.isNotEmpty) ? desc : extract;
-
-    return KnowledgeEntity(
-      id: rawTitle.isNotEmpty ? rawTitle : title,
-      title: article['normalizedtitle'] ?? article['title'] ?? '',
-      description: combinedDesc,
-      thumbnailUrl: thumbnailUrl,
-      wikipediaUrl: article['content_urls']?['desktop']?['page'],
-    );
-  }
-
-  Future<String> getEntityBiography(String title) async {
-    if (_bioCache.containsKey(title)) return _bioCache[title]!;
-    try {
-      final response = await _dio.get(
-        'https://en.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(title)}',
-        queryParameters: {
-          'pithumbsize': '600',
-        },
-        options: Options(headers: _headers),
-      );
-
-      if (response.statusCode == 200) {
-        final extract = response.data['extract'] ?? '';
-        _bioCache[title] = extract;
-        return extract;
-      }
-      return '';
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 429) {
-        throw Exception('Rate limit exceeded. Please wait a moment.');
-      }
-      throw Exception('Error fetching biography: $e');
-    } catch (e) {
-      throw Exception('Error fetching biography: $e');
-    }
-  }
-
-  Future<List<KnowledgeEntity>> searchEntities(String query) async {
-    final cleanQuery = query.trim();
-    if (cleanQuery.isEmpty) return [];
-    if (_searchCache.containsKey(cleanQuery)) return _searchCache[cleanQuery]!;
-
-    final String encodedQuery = Uri.encodeComponent(cleanQuery);
+  /// Discover Paginated Endpoint (`GET /api/v1/personas/discover`)
+  Future<List<KnowledgeEntity>> getDiscoverPersonasViaBackend({
+    required int timestamp,
+    int page = 1,
+    int limit = 6,
+  }) async {
     List<dynamic>? rawList;
+    final queryStr = '?page=$page&limit=$limit&ts=$timestamp';
 
-    // 1. Make GET request to Android emulator host address (10.0.2.2:8000)
-    try {
-      final response = await _dio.get(
-        'http://10.0.2.2:8000/api/v1/search/personas?q=$encodedQuery',
-        options: Options(
-          headers: _headers,
-          sendTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
-        ),
-      );
-      if (response.statusCode == 200 && response.data != null) {
-        if (response.data is List) {
-          rawList = response.data as List<dynamic>;
-        } else if (response.data is Map && response.data['results'] is List) {
-          rawList = response.data['results'] as List<dynamic>;
-        } else if (response.data is Map && response.data['personas'] is List) {
-          rawList = response.data['personas'] as List<dynamic>;
-        }
-      }
-    } catch (_) {
-      // 2. Fallback to localhost (for desktop/web/local environment)
+    for (final baseUrl in _candidateBaseUrls) {
       try {
         final response = await _dio.get(
-          'http://localhost:8000/api/v1/search/personas?q=$encodedQuery',
+          '$baseUrl/api/v1/personas/discover$queryStr',
           options: Options(
             headers: _headers,
-            sendTimeout: const Duration(seconds: 5),
-            receiveTimeout: const Duration(seconds: 5),
+            sendTimeout: const Duration(seconds: 4),
+            receiveTimeout: const Duration(seconds: 6),
           ),
         );
         if (response.statusCode == 200 && response.data != null) {
@@ -724,45 +181,610 @@ class KnowledgeRepository {
           } else if (response.data is Map && response.data['personas'] is List) {
             rawList = response.data['personas'] as List<dynamic>;
           }
+          if (rawList != null && rawList.isNotEmpty) {
+            break;
+          }
         }
       } catch (_) {
-        rawList = null;
+        // Continue to next endpoint or fallback
       }
     }
 
-    if (rawList == null || rawList.isEmpty) {
-      return [];
+    if (rawList != null && rawList.isNotEmpty) {
+      final personaResults = rawList
+          .whereType<Map<String, dynamic>>()
+          .map((item) => PersonaSearchResult.fromJson(item))
+          .toList();
+
+      final parsed = personaResults.map((res) {
+        final title = res.title.trim();
+        return KnowledgeEntity(
+          id: res.wikidataId.isNotEmpty ? res.wikidataId : title,
+          title: title,
+          description: res.description.trim(),
+          thumbnailUrl: res.imageUrl,
+          wikipediaUrl: res.wikidataId.isNotEmpty
+              ? 'https://www.wikidata.org/wiki/${res.wikidataId}'
+              : 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
+        );
+      }).where((entity) => entity.title.isNotEmpty).toList();
+
+      if (parsed.isNotEmpty) {
+        return parsed;
+      }
     }
 
-    final personaResults = rawList
-        .whereType<Map<String, dynamic>>()
-        .map((item) => PersonaSearchResult.fromJson(item))
-        .toList();
+    // Robust client fallback: fetch discover personas directly from Wikipedia API
+    return _fetchDiscoverPersonasDirect(
+      timestamp: timestamp,
+      page: page,
+      limit: limit,
+    );
+  }
 
-    final List<KnowledgeEntity> entities = [];
-    final Set<String> seenTitles = {};
+  Future<List<KnowledgeEntity>> _fetchDiscoverPersonasDirect({
+    required int timestamp,
+    int page = 1,
+    int limit = 6,
+  }) async {
+    try {
+      final pool = List<String>.from(defaultPersonaPool);
+      final rng = math.Random(timestamp);
+      for (int i = pool.length - 1; i > 0; i--) {
+        final j = rng.nextInt(i + 1);
+        final temp = pool[i];
+        pool[i] = pool[j];
+        pool[j] = temp;
+      }
 
-    for (final res in personaResults) {
-      if (res.title.trim().isEmpty) continue;
-      final title = res.title.trim();
-      if (seenTitles.contains(title.toLowerCase())) continue;
+      final pageNum = math.max(1, page);
+      final requestedLimit = math.max(1, limit);
+      final startIndex = (pageNum - 1) * requestedLimit;
 
-      final entity = KnowledgeEntity(
-        id: res.wikidataId.isNotEmpty ? res.wikidataId : title,
-        title: title,
-        description: res.description.trim(),
-        thumbnailUrl: res.imageUrl,
-        wikipediaUrl: res.wikidataId.isNotEmpty
-            ? 'https://www.wikidata.org/wiki/${res.wikidataId}'
-            : 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
+      final List<String> candidateNames = [];
+      for (int i = startIndex; i < startIndex + requestedLimit + 4; i++) {
+        final name = pool[i % pool.length];
+        if (!candidateNames.contains(name)) {
+          candidateNames.add(name);
+        }
+        if (candidateNames.length >= requestedLimit) break;
+      }
+
+      if (candidateNames.isEmpty) {
+        return _initialSeedPersonas.take(limit).toList();
+      }
+
+      final response = await _dio.get(
+        'https://en.wikipedia.org/w/api.php',
+        queryParameters: {
+          'action': 'query',
+          'titles': candidateNames.join('|'),
+          'prop': 'pageimages|description|extracts',
+          'exintro': '1',
+          'explaintext': '1',
+          'exsentences': '1',
+          'piprop': 'thumbnail',
+          'pithumbsize': '600',
+          'format': 'json',
+        },
+        options: Options(
+          headers: _headers,
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+        ),
       );
 
-      entities.add(entity);
-      seenTitles.add(title.toLowerCase());
+      if (response.statusCode == 200 && response.data != null) {
+        final pages = response.data['query']?['pages'] as Map<String, dynamic>?;
+        if (pages != null && pages.isNotEmpty) {
+          final Map<String, KnowledgeEntity> fetchedMap = {};
+          for (final page in pages.values) {
+            final title = (page['title'] as String? ?? '').trim();
+            if (title.isEmpty) continue;
+            final desc = (page['description'] as String?)?.trim() ??
+                (page['extract'] as String?)?.trim() ??
+                'Notable figure';
+            final thumb = page['thumbnail']?['source'] as String?;
+            final pageId = (page['pageid'] ?? title).toString();
+
+            fetchedMap[title.toLowerCase()] = KnowledgeEntity(
+              id: pageId,
+              title: title,
+              description: desc,
+              thumbnailUrl: thumb,
+              wikipediaUrl: 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
+            );
+          }
+
+          final List<KnowledgeEntity> results = [];
+          for (final name in candidateNames) {
+            final entity = fetchedMap[name.toLowerCase()];
+            if (entity != null) {
+              results.add(entity);
+            }
+          }
+          if (results.isNotEmpty) {
+            return results;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Offline / Network fallback
+    final seed = _initialSeedPersonas;
+    final startIdx = ((page - 1) * limit) % seed.length;
+    final List<KnowledgeEntity> fallback = [];
+    for (int i = 0; i < limit; i++) {
+      fallback.add(seed[(startIdx + i) % seed.length]);
+    }
+    return fallback;
+  }
+
+  /// Trending Entities using Discover Paginated Endpoint (`GET /api/v1/personas/discover`)
+  Future<List<KnowledgeEntity>> getTrendingEntities({
+    int page = 1,
+    bool refresh = false,
+    int? sessionTimestamp,
+  }) async {
+    final int ts = sessionTimestamp ?? DateTime.now().millisecondsSinceEpoch;
+    return getDiscoverPersonasViaBackend(
+      timestamp: ts,
+      page: page,
+      limit: 6,
+    );
+  }
+
+  /// Search personas endpoint (`GET /api/v1/search/personas?q=...`)
+  Future<List<KnowledgeEntity>> searchEntities(String query) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return [];
+    if (_searchCache.containsKey(cleanQuery)) return _searchCache[cleanQuery]!;
+
+    final String encodedQuery = Uri.encodeComponent(cleanQuery);
+    List<dynamic>? rawList;
+
+    for (final baseUrl in _candidateBaseUrls) {
+      try {
+        final response = await _dio.get(
+          '$baseUrl/api/v1/search/personas?q=$encodedQuery',
+          options: Options(
+            headers: _headers,
+            sendTimeout: const Duration(seconds: 4),
+            receiveTimeout: const Duration(seconds: 6),
+          ),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          if (response.data is List) {
+            rawList = response.data as List<dynamic>;
+          } else if (response.data is Map && response.data['results'] is List) {
+            rawList = response.data['results'] as List<dynamic>;
+          } else if (response.data is Map && response.data['personas'] is List) {
+            rawList = response.data['personas'] as List<dynamic>;
+          }
+          if (rawList != null && rawList.isNotEmpty) {
+            break;
+          }
+        }
+      } catch (_) {
+        // Continue to next endpoint or fallback
+      }
     }
 
-    _searchCache[cleanQuery] = entities;
-    return entities;
+    if (rawList != null && rawList.isNotEmpty) {
+      final personaResults = rawList
+          .whereType<Map<String, dynamic>>()
+          .map((item) => PersonaSearchResult.fromJson(item))
+          .toList();
+
+      final List<KnowledgeEntity> entities = [];
+      final Set<String> seenTitles = {};
+
+      for (final res in personaResults) {
+        if (res.title.trim().isEmpty) continue;
+        final title = res.title.trim();
+        if (seenTitles.contains(title.toLowerCase())) continue;
+
+        final entity = KnowledgeEntity(
+          id: res.wikidataId.isNotEmpty ? res.wikidataId : title,
+          title: title,
+          description: res.description.trim(),
+          thumbnailUrl: res.imageUrl,
+          wikipediaUrl: res.wikidataId.isNotEmpty
+              ? 'https://www.wikidata.org/wiki/${res.wikidataId}'
+              : 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
+          labels: res.labels,
+        );
+
+        entities.add(entity);
+        seenTitles.add(title.toLowerCase());
+      }
+
+      // If searching for a label, ensure personas matching the label are prioritized at the top
+      final labelPersonaNames = PersonaLabelService.getPersonaNamesForLabel(cleanQuery);
+      for (final pName in labelPersonaNames) {
+        if (!seenTitles.contains(pName.toLowerCase())) {
+          final seed = _initialSeedPersonas.firstWhere(
+            (s) => s.title.toLowerCase() == pName.toLowerCase(),
+            orElse: () => KnowledgeEntity(
+              id: pName,
+              title: pName,
+              description: 'Notable Persona',
+              wikipediaUrl: 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(pName)}',
+              labels: PersonaLabelService.getLabelsForPersona(pName),
+            ),
+          );
+          entities.insert(0, seed);
+          seenTitles.add(pName.toLowerCase());
+        }
+      }
+
+      for (final seed in _initialSeedPersonas) {
+        if (!seenTitles.contains(seed.title.toLowerCase())) {
+          final matchesLabel = seed.effectiveLabels.any((l) =>
+              l.toLowerCase() == cleanQuery.toLowerCase() ||
+              l.toLowerCase().contains(cleanQuery.toLowerCase()) ||
+              cleanQuery.toLowerCase().contains(l.toLowerCase()));
+          if (matchesLabel) {
+            entities.insert(0, seed);
+            seenTitles.add(seed.title.toLowerCase());
+          }
+        }
+      }
+
+      if (entities.isNotEmpty) {
+        _searchCache[cleanQuery] = entities;
+        return entities;
+      }
+    }
+
+    // Robust client fallback: search directly via Wikipedia Search API
+    return _searchEntitiesDirect(cleanQuery);
+  }
+
+  Future<List<KnowledgeEntity>> _searchEntitiesDirect(String query) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return [];
+
+    try {
+      final response = await _dio.get(
+        'https://en.wikipedia.org/w/api.php',
+        queryParameters: {
+          'action': 'query',
+          'generator': 'search',
+          'gsrsearch': cleanQuery,
+          'gsrlimit': 15,
+          'prop': 'pageimages|description|extracts',
+          'exintro': '1',
+          'explaintext': '1',
+          'exsentences': '1',
+          'piprop': 'thumbnail',
+          'pithumbsize': '600',
+          'format': 'json',
+        },
+        options: Options(
+          headers: _headers,
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final pages = response.data['query']?['pages'] as Map<String, dynamic>?;
+        if (pages != null && pages.isNotEmpty) {
+          final List<Map<String, dynamic>> sortedPages =
+              pages.values.cast<Map<String, dynamic>>().toList();
+          sortedPages.sort((a, b) => ((a['index'] ?? 999) as int).compareTo((b['index'] ?? 999) as int));
+
+          final List<KnowledgeEntity> results = [];
+          for (final page in sortedPages) {
+            final title = (page['title'] as String? ?? '').trim();
+            if (title.isEmpty) continue;
+            final desc = (page['description'] as String?)?.trim() ??
+                (page['extract'] as String?)?.trim() ??
+                '';
+            final lowerDesc = desc.toLowerCase();
+            if (lowerDesc.contains('disambiguation') ||
+                lowerDesc.contains('topics referred to') ||
+                lowerDesc.contains('wikimedia list article')) {
+              continue;
+            }
+            final thumb = page['thumbnail']?['source'] as String?;
+            final pageId = (page['pageid'] ?? title).toString();
+
+            results.add(KnowledgeEntity(
+              id: pageId,
+              title: title,
+              description: desc.isNotEmpty ? desc : 'Notable persona',
+              thumbnailUrl: thumb,
+              wikipediaUrl: 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
+            ));
+          }
+
+          // Prepend seed personas that match the query or its labels
+          for (final seed in _initialSeedPersonas) {
+            if (!results.any((r) => r.title.toLowerCase() == seed.title.toLowerCase())) {
+              final matchesLabel = seed.effectiveLabels.any((l) =>
+                  l.toLowerCase() == cleanQuery.toLowerCase() ||
+                  l.toLowerCase().contains(cleanQuery.toLowerCase()) ||
+                  cleanQuery.toLowerCase().contains(l.toLowerCase()));
+              if (matchesLabel) {
+                results.insert(0, seed);
+              }
+            }
+          }
+
+          if (results.isNotEmpty) {
+            _searchCache[cleanQuery] = results;
+            return results;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Seed and label matching as fallback
+    final labelSeedMatches = _initialSeedPersonas.where((e) {
+      final matchesQuery = e.title.toLowerCase().contains(cleanQuery.toLowerCase());
+      final matchesLabel = e.effectiveLabels.any((l) =>
+          l.toLowerCase() == cleanQuery.toLowerCase() ||
+          l.toLowerCase().contains(cleanQuery.toLowerCase()) ||
+          cleanQuery.toLowerCase().contains(l.toLowerCase()));
+      return matchesQuery || matchesLabel;
+    }).toList();
+
+    if (labelSeedMatches.isNotEmpty) {
+      return labelSeedMatches;
+    }
+
+    return [];
+  }
+
+  /// Recommendations from Backend (`POST /api/v1/personas/recommend`)
+  Future<List<KnowledgeEntity>> getRecommendations(
+    List<String> likedPersonas, {
+    List<String> viewedPersonas = const [],
+    List<String> searchedQueries = const [],
+    int limit = 6,
+  }) async {
+    List<dynamic>? rawList;
+
+    final requestData = {
+      "liked_personas": likedPersonas,
+      "viewed_personas": viewedPersonas,
+      "searched_queries": searchedQueries,
+      "limit": limit,
+    };
+
+    for (final baseUrl in _candidateBaseUrls) {
+      try {
+        final response = await _dio.post(
+          '$baseUrl/api/v1/personas/recommend',
+          data: requestData,
+          options: Options(
+            headers: {
+              ..._headers,
+              'Content-Type': 'application/json',
+            },
+            sendTimeout: const Duration(seconds: 4),
+            receiveTimeout: const Duration(seconds: 6),
+          ),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          if (response.data is List) {
+            rawList = response.data as List<dynamic>;
+          } else if (response.data is Map && response.data['results'] is List) {
+            rawList = response.data['results'] as List<dynamic>;
+          } else if (response.data is Map && response.data['personas'] is List) {
+            rawList = response.data['personas'] as List<dynamic>;
+          } else if (response.data is Map && response.data['recommendations'] is List) {
+            rawList = response.data['recommendations'] as List<dynamic>;
+          }
+          if (rawList != null && rawList.isNotEmpty) {
+            break;
+          }
+        }
+      } catch (_) {
+        // Continue to next endpoint or fallback
+      }
+    }
+
+    if (rawList != null && rawList.isNotEmpty) {
+      final personaResults = rawList
+          .whereType<Map<String, dynamic>>()
+          .map((item) => PersonaSearchResult.fromJson(item))
+          .toList();
+
+      final parsed = personaResults.map((res) {
+        final title = res.title.trim();
+        return KnowledgeEntity(
+          id: res.wikidataId.isNotEmpty ? res.wikidataId : title,
+          title: title,
+          description: res.description.trim(),
+          thumbnailUrl: res.imageUrl,
+          wikipediaUrl: res.wikidataId.isNotEmpty
+              ? 'https://www.wikidata.org/wiki/${res.wikidataId}'
+              : 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
+        );
+      }).where((entity) => entity.title.isNotEmpty).toList();
+
+      if (parsed.isNotEmpty) {
+        return parsed;
+      }
+    }
+
+    return _getRecommendationsDirect(
+      likedPersonas,
+      viewedPersonas: viewedPersonas,
+      searchedQueries: searchedQueries,
+      limit: limit,
+    );
+  }
+
+  Future<List<KnowledgeEntity>> _getRecommendationsDirect(
+    List<String> likedPersonas, {
+    List<String> viewedPersonas = const [],
+    List<String> searchedQueries = const [],
+    int limit = 6,
+  }) async {
+    final seenLower = {...likedPersonas, ...viewedPersonas}
+        .map((e) => e.toLowerCase().trim())
+        .toSet();
+    final remainingPool = defaultPersonaPool
+        .where((name) => !seenLower.contains(name.toLowerCase()))
+        .toList();
+
+    final candidateNames = remainingPool.take(limit).toList();
+    if (candidateNames.isEmpty) return _initialSeedPersonas.take(limit).toList();
+
+    try {
+      final response = await _dio.get(
+        'https://en.wikipedia.org/w/api.php',
+        queryParameters: {
+          'action': 'query',
+          'titles': candidateNames.join('|'),
+          'prop': 'pageimages|description|extracts',
+          'exintro': '1',
+          'explaintext': '1',
+          'exsentences': '1',
+          'piprop': 'thumbnail',
+          'pithumbsize': '600',
+          'format': 'json',
+        },
+        options: Options(
+          headers: _headers,
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final pages = response.data['query']?['pages'] as Map<String, dynamic>?;
+        if (pages != null && pages.isNotEmpty) {
+          final List<KnowledgeEntity> results = [];
+          for (final page in pages.values) {
+            final title = (page['title'] as String? ?? '').trim();
+            if (title.isEmpty) continue;
+            final desc = (page['description'] as String?)?.trim() ??
+                (page['extract'] as String?)?.trim() ??
+                'Notable figure';
+            final thumb = page['thumbnail']?['source'] as String?;
+            final pageId = (page['pageid'] ?? title).toString();
+
+            results.add(KnowledgeEntity(
+              id: pageId,
+              title: title,
+              description: desc,
+              thumbnailUrl: thumb,
+              wikipediaUrl: 'https://en.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
+            ));
+          }
+          if (results.isNotEmpty) return results;
+        }
+      }
+    } catch (_) {}
+
+    return _initialSeedPersonas
+        .where((e) => !seenLower.contains(e.title.toLowerCase()))
+        .take(limit)
+        .toList();
+  }
+
+  Future<List<KnowledgeEntity>> getRelatedEntities(String title, {int limit = 6}) async {
+    return getRecommendations([title], limit: limit);
+  }
+
+  /// RAG Overview & Gallery from Backend (`POST /api/v1/rag/query`)
+  Future<RagQueryResponse> getRagOverview(String entityName) async {
+    const String backendUrl = 'http://10.0.2.2:8000/api/v1/rag/query';
+    const String localhostUrl = 'http://localhost:8000/api/v1/rag/query';
+
+    final requestData = {
+      "entity_name": entityName,
+      "user_query": "Provide a comprehensive overview and biographical summary.",
+      "top_k": 3,
+      "similarity_threshold": 0.25,
+      "format_type": "cards",
+    };
+
+    Response? response;
+    // 1. Send POST request to Android emulator host address
+    try {
+      response = await _dio.post(
+        backendUrl,
+        data: requestData,
+        options: Options(
+          headers: {"Content-Type": "application/json"},
+          sendTimeout: const Duration(seconds: 25),
+          receiveTimeout: const Duration(seconds: 25),
+        ),
+      );
+    } catch (_) {
+      // 2. Fallback to localhost address
+      try {
+        response = await _dio.post(
+          localhostUrl,
+          data: requestData,
+          options: Options(
+            headers: {"Content-Type": "application/json"},
+            sendTimeout: const Duration(seconds: 25),
+            receiveTimeout: const Duration(seconds: 25),
+          ),
+        );
+      } catch (_) {
+        response = null;
+      }
+    }
+
+    if (response != null && response.statusCode == 200 && response.data != null) {
+      try {
+        return RagQueryResponse.fromJson(response.data);
+      } catch (_) {
+        // Fallback to Wikipedia client parsing below if backend JSON has unexpected types
+      }
+    }
+
+    // 3. Robust client fallback: fetch Wikipedia biography and gallery so overview and gallery never fail
+    try {
+      final bio = await getEntityBiography(entityName);
+      final gallery = await getEntityGallery(entityName);
+      if (bio.isNotEmpty || gallery.isNotEmpty) {
+        return RagQueryResponse.fromJson({
+          'entity': entityName,
+          'answer': bio.isNotEmpty ? bio : '$entityName is a well-known persona and notable figure.',
+          'image_urls': gallery,
+          'retrieved_chunks': [],
+          'telemetry': {
+            'hydration_latency_ms': 0,
+            'vector_indexing_latency_ms': 0,
+            'vector_search_latency_ms': 0,
+            'llm_inference_latency_ms': 0,
+            'total_execution_ms': 0,
+            'avg_similarity_score': 0,
+          },
+        });
+      }
+    } catch (_) {}
+
+    throw Exception('Failed to load overview from backend for $entityName');
+  }
+
+  Future<String> getEntityBiography(String title) async {
+    if (_bioCache.containsKey(title)) return _bioCache[title]!;
+    try {
+      final response = await _dio.get(
+        'https://en.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(title)}',
+        queryParameters: {'pithumbsize': '600'},
+        options: Options(headers: _headers),
+      );
+
+      if (response.statusCode == 200) {
+        final extract = response.data['extract'] ?? '';
+        _bioCache[title] = extract;
+        return extract;
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
   }
 
   Future<List<String>> getEntityGallery(String title) async {
@@ -828,154 +850,19 @@ class KnowledgeRepository {
                 !lower.contains('commons-logo') &&
                 !lower.contains('wikiquote') &&
                 !lower.contains('icon')) {
-              imageUrl = _getHighResImageUrl(cleanUrl);
-              validUrls.add(imageUrl);
+              validUrls.add(cleanUrl);
             }
           }
         }
       }
       _galleryCache[title] = validUrls;
       return validUrls;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 429) {
-        throw Exception('Rate limit exceeded. Please wait a moment.');
-      }
-      throw Exception('Error fetching images: $e');
     } catch (e) {
-      throw Exception('Error fetching images: $e');
-    }
-  }
-
-  Future<List<KnowledgeEntity>> getRecommendations(String title, {List<String> excludeNames = const []}) async {
-    try {
-      String exclusionRule = excludeNames.isNotEmpty ? "Do NOT include any of these names: ${excludeNames.join(', ')}. " : "";
-      String prompt = "${exclusionRule}Give me exactly 12 famous real people similar to $title. Return ONLY a valid JSON array of strings: [\"Name 1\", \"Name 2\", \"Name 3\", \"Name 4\", \"Name 5\", \"Name 6\", \"Name 7\", \"Name 8\", \"Name 9\", \"Name 10\", \"Name 11\", \"Name 12\"].";
-
-      final response = await _dio.post(
-        '${AppConstants.groqBaseUrl}/chat/completions',
-        data: {
-          "model": "openai/gpt-oss-120b",
-          "messages": [
-            {"role": "user", "content": prompt}
-          ],
-        },
-        options: Options(
-          headers: {
-            "Authorization": "Bearer ${AppConstants.groqApiKey}",
-            "Content-Type": "application/json",
-          },
-        ),
-      );
-
-      String content = response.data['choices'][0]['message']['content'] as String;
-
-      // Strip markdown
-      content = content.replaceAll('```json', '').replaceAll('```', '').trim();
-
-      int startIndex = content.indexOf('[');
-      int endIndex = content.lastIndexOf(']');
-      if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
-        content = content.substring(startIndex, endIndex + 1);
-      }
-
-      final List<dynamic> names = jsonDecode(content);
-      final List<KnowledgeEntity> recommendations = [];
-
-      for (String name in names.take(12)) {
-        try {
-          final entities = await searchEntities(name);
-          if (entities.isNotEmpty) {
-            recommendations.add(entities.first);
-          }
-        } catch (_) {}
-      }
-
-      return recommendations;
-    } on DioException catch (e) {
-      final responseData = e.response?.data;
-      if (responseData != null && responseData.toString().contains('invalid_api_key')) {
-        throw Exception("AI Engine unavailable: Invalid or expired API Key.");
-      }
-      throw Exception('Network error: ${responseData ?? e.message}');
-    } catch (e) {
-      throw Exception('Error parsing recommendations: $e');
+      return [];
     }
   }
 
   Future<String> getAIOverview(String bio) async {
-    if (bio.isEmpty) return '';
-    try {
-      final prompt = "Introduce this person to a reader who has NEVER heard of them before. Start with a clear 1-2 sentence introductory hook explaining exactly who they are, their profession, and why they are famous. Then provide a highly concise, structured overview. Use markdown. Include a bold 'Overview' section with bullet points for 'Full Name', 'Birthdate', 'Known For', and 'Nationality'. Then a bold 'Career Highlights' section with 2-3 short bullet points. Keep it extremely brief.\n\n$bio";
-
-      final response = await _dio.post(
-        '${AppConstants.groqBaseUrl}/chat/completions',
-        data: {
-          "model": "openai/gpt-oss-120b",
-          "messages": [
-            {"role": "user", "content": prompt}
-          ]
-        },
-        options: Options(
-          headers: {
-            "Authorization": "Bearer ${AppConstants.groqApiKey}",
-            "Content-Type": "application/json",
-          },
-        ),
-      );
-
-      return response.data['choices'][0]['message']['content']?.toString().trim() ?? '';
-    } on DioException catch (e) {
-      final responseData = e.response?.data;
-      if (responseData != null && responseData.toString().contains('invalid_api_key')) {
-        throw Exception("AI Engine unavailable: Invalid or expired API Key.");
-      }
-      throw Exception('Network error: ${responseData ?? e.message}');
-    } catch (e) {
-      throw Exception('Error fetching AI overview: $e');
-    }
-  }
-
-  Future<RagQueryResponse> getRagOverview(String entityName) async {
-    try {
-      final response = await _dio.post(
-        '${AppConstants.ragBackendUrl}/api/v1/rag/query',
-        data: {
-          "entity_name": entityName,
-          "wikipedia_title": entityName.replaceAll(' ', '_'),
-          "user_query": "Provide a highly concise, structured overview. Use markdown. Include a bold Overview section with bullet points for Full Name, Birthdate, Known For, and Nationality. Then a bold Career Highlights section with 2-3 short bullet points. Keep it extremely brief.",
-          "top_k": 3,
-          "similarity_threshold": 0.25
-        },
-      );
-
-      if (response.statusCode == 200 && response.data != null) {
-        return RagQueryResponse.fromJson(response.data);
-      } else {
-        throw Exception("Invalid response from RAG backend");
-      }
-    } catch (e) {
-      // Fallback
-      try {
-        final bio = await getEntityBiography(entityName);
-        final answer = await getAIOverview(bio);
-        final images = await getEntityGallery(entityName);
-        return RagQueryResponse(
-          entity: entityName,
-          answer: answer.isNotEmpty ? answer : "No overview available.",
-          imageUrls: images,
-          retrievedChunks: [],
-          telemetry: PerformanceTelemetry(
-            hydrationLatencyMs: 0.0,
-            vectorIndexingLatencyMs: 0.0,
-            vectorSearchLatencyMs: 0.0,
-            llmInferenceLatencyMs: 0.0,
-            totalExecutionMs: 0.0,
-            avgSimilarityScore: 0.0,
-          ),
-        );
-      } catch (fallbackError) {
-        throw Exception("Both RAG backend and fallback failed: $fallbackError");
-      }
-    }
+    return bio;
   }
 }

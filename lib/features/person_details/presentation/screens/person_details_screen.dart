@@ -6,15 +6,18 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:itiproject/core/widgets/persona_label_chip.dart';
 import 'package:itiproject/core/widgets/shimmer_loading.dart';
 import 'package:itiproject/core/widgets/entity_card.dart';
 
 import 'package:itiproject/features/favorites/presentation/providers/favorites_provider.dart';
 import 'package:itiproject/features/favorites/presentation/widgets/save_to_collection_sheet.dart';
 import 'package:itiproject/features/home/data/models/entity_model.dart';
+import 'package:itiproject/features/home/presentation/providers/user_interests_provider.dart';
+import 'package:itiproject/features/search/presentation/providers/search_provider.dart';
 import '../providers/person_details_provider.dart';
+import '../widgets/persona_overview_cards_deck.dart';
 
 class PersonDetailsScreen extends ConsumerStatefulWidget {
   final KnowledgeEntity entity;
@@ -27,6 +30,13 @@ class PersonDetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _PersonDetailsScreenState extends ConsumerState<PersonDetailsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(userInterestsProvider.notifier).recordViewedPersona(widget.entity);
+    });
+  }
   Future<void> _downloadImage(BuildContext context, String imageUrl) async {
     try {
       if (Platform.isAndroid) {
@@ -100,9 +110,56 @@ class _PersonDetailsScreenState extends ConsumerState<PersonDetailsScreen> {
     }
   }
 
+  void _showImageDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      useSafeArea: false,
+      builder: (_) => Scaffold(
+        backgroundColor: Colors.black87,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.download, color: Colors.white),
+              onPressed: () {
+                _downloadImage(context, imageUrl);
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+          leading: const SizedBox.shrink(),
+          leadingWidth: 0,
+        ),
+        body: Center(
+          child: InteractiveViewer(
+            panEnabled: true,
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: CachedNetworkImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.contain,
+              httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
+              placeholder: (context, url) => Container(
+                color: Colors.grey[900],
+                child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyan)),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey[900],
+                child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey)),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final biographyAsync = ref.watch(entityBiographyProvider(widget.entity.title));
     final ragOverviewAsync = ref.watch(ragOverviewProvider(widget.entity.title));
     final favorites = ref.watch(favoritesProvider);
     final isFavorite = favorites.any((e) => e.id == widget.entity.id);
@@ -124,6 +181,13 @@ class _PersonDetailsScreenState extends ConsumerState<PersonDetailsScreen> {
             orElse: () => null,
           );
 
+    final List<String> displayedLabels = ragOverviewAsync.maybeWhen(
+      data: (response) => response.labels.isNotEmpty
+          ? response.labels
+          : widget.entity.effectiveLabels,
+      orElse: () => widget.entity.effectiveLabels,
+    );
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -137,16 +201,13 @@ class _PersonDetailsScreenState extends ConsumerState<PersonDetailsScreen> {
           ),
         ),
       ),
-      floatingActionButton: biographyAsync.maybeWhen(
-        data: (biography) => FloatingActionButton.extended(
-          onPressed: () {
-            context.push('/person_chat', extra: widget.entity);
-          },
-          backgroundColor: Colors.red,
-          icon: const Icon(Icons.auto_awesome, color: Colors.white),
-          label: const Text('Ask AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-        orElse: () => null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          context.push('/person_chat', extra: widget.entity);
+        },
+        backgroundColor: Colors.red,
+        icon: const Icon(Icons.auto_awesome, color: Colors.white),
+        label: const Text('Ask AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: NotificationListener<ScrollNotification>(
         onNotification: (ScrollNotification scrollInfo) {
@@ -160,361 +221,363 @@ class _PersonDetailsScreenState extends ConsumerState<PersonDetailsScreen> {
         },
         child: SingleChildScrollView(
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Hero(
-              tag: 'entity_${widget.entity.id}',
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(40),
-                ),
-                child: (effectiveHeaderImage != null &&
-                        effectiveHeaderImage.trim().isNotEmpty)
-                    ? Container(
-                        color: Colors.white,
-                        child: CachedNetworkImage(
-                          imageUrl: effectiveHeaderImage,
-                          fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
-                          httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
-                          height: MediaQuery.of(context).size.height * 0.55,
-                          width: double.infinity,
-                          placeholder: (context, url) =>
-                              const ShimmerLoading.rectangular(
-                                height: double.infinity,
-                              ),
-                          errorWidget: (context, url, error) => Container(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Hero(
+                tag: 'entity_${widget.entity.id}',
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(40),
+                  ),
+                  child: (effectiveHeaderImage != null &&
+                          effectiveHeaderImage.trim().isNotEmpty)
+                      ? Container(
+                          color: Colors.white,
+                          child: CachedNetworkImage(
+                            imageUrl: effectiveHeaderImage,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
                             height: MediaQuery.of(context).size.height * 0.55,
                             width: double.infinity,
-                            color: const Color(0xFF1E1E1E),
-                            child: const Center(
-                              child: Icon(Icons.person_outline, size: 100, color: Colors.grey),
-                            ),
+                            placeholder: (context, url) =>
+                                const ShimmerLoading.rectangular(
+                                  height: double.infinity,
+                                ),
+                            errorWidget: (context, url, error) {
+                              final fallbackUrl = ragOverviewAsync.maybeWhen(
+                                data: (resp) => resp.imageUrls.firstWhere(
+                                  (img) => img != url && img.trim().isNotEmpty,
+                                  orElse: () => '',
+                                ),
+                                orElse: () => '',
+                              );
+                              if (fallbackUrl.isNotEmpty) {
+                                return CachedNetworkImage(
+                                  imageUrl: fallbackUrl,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.topCenter,
+                                  httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
+                                  height: MediaQuery.of(context).size.height * 0.55,
+                                  width: double.infinity,
+                                  errorWidget: (c, u, e) => Container(
+                                    height: MediaQuery.of(context).size.height * 0.55,
+                                    width: double.infinity,
+                                    color: const Color(0xFF1E1E1E),
+                                    child: const Center(
+                                      child: Icon(Icons.person_outline, size: 100, color: Colors.grey),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return Container(
+                                height: MediaQuery.of(context).size.height * 0.55,
+                                width: double.infinity,
+                                color: const Color(0xFF1E1E1E),
+                                child: const Center(
+                                  child: Icon(Icons.person_outline, size: 100, color: Colors.grey),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      : Container(
+                          height: MediaQuery.of(context).size.height * 0.55,
+                          width: double.infinity,
+                          color: const Color(0xFF1E1E1E),
+                          child: const Center(
+                            child: Icon(Icons.person_outline, size: 100, color: Colors.grey),
                           ),
                         ),
-                      )
-                    : Container(
-                        height: MediaQuery.of(context).size.height * 0.55,
-                        width: double.infinity,
-                        color: const Color(0xFF1E1E1E),
-                        child: const Center(
-                          child: Icon(Icons.person_outline, size: 100, color: Colors.grey),
-                        ),
-                      ),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-              child: Column(
-                children: [
-                  Text(
-                    widget.entity.title,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium
-                        ?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: 160,
-                    height: 50,
-                    child: FilledButton(
-                      onPressed: () {
-                        showSaveToCollectionSheet(context, widget.entity);
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: isFavorite
-                            ? const Color(0xFF333333)
-                            : Colors.white,
-                        foregroundColor: isFavorite ? Colors.white : Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                child: Column(
+                  children: [
+                    Text(
+                      widget.entity.title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                    ),
+                    if (displayedLabels.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      PersonaLabelsRow(
+                        labels: displayedLabels,
+                        scrollable: true,
+                        onLabelTap: (label) {
+                          ref.read(searchQueryProvider.notifier).state = label;
+                          ref.read(userInterestsProvider.notifier).addSearch(label);
+                          ref.read(homeSearchOpenProvider.notifier).state = true;
+                          context.go('/');
+                        },
                       ),
-                      child: Text(
-                        isFavorite ? 'Saved' : 'Save',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: 160,
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: () {
+                          showSaveToCollectionSheet(context, widget.entity);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: isFavorite
+                              ? const Color(0xFF333333)
+                              : Colors.white,
+                          foregroundColor: isFavorite ? Colors.white : Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: Text(
+                          isFavorite ? 'Saved' : 'Save',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
-              child: biographyAsync.when(
-                data: (biography) => Column(
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (biography.isNotEmpty) ...[
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final ragOverviewAsync = ref.watch(ragOverviewProvider(widget.entity.title));
-                          return ragOverviewAsync.when(
-                            data: (response) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // AI Overview Section
-                                  const Text(
-                                    'Overview',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final ragOverviewAsync = ref.watch(ragOverviewProvider(widget.entity.title));
+
+                        return ragOverviewAsync.when(
+                          data: (response) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Multi-card Swipeable Overview Deck
+                                PersonaOverviewCardsDeck(
+                                  cards: response.overviewCards,
+                                  entity: widget.entity,
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Gallery Section
+                                Text(
+                                  'Gallery',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
-                                  const SizedBox(height: 8),
-                                  response.answer.isNotEmpty 
-                                    ? MarkdownBody(
-                                        data: response.answer,
-                                        styleSheet: MarkdownStyleSheet(
-                                          p: const TextStyle(color: Colors.white70, fontSize: 16),
-                                          listBullet: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                            color: Colors.purpleAccent,
-                                          ),
-                                        ),
-                                      )
-                                    : const Text(
-                                        'No overview content available.',
-                                        style: TextStyle(color: Colors.white70, fontSize: 16),
-                                      ),
-                                  const SizedBox(height: 16),
-                                  // Gallery Section
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Gallery',
-                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  if (response.imageUrls.isEmpty) ...[
-                                    const Text('No gallery images available.', style: TextStyle(color: Colors.white54)),
-                                    const SizedBox(height: 24),
-                                  ] else ...[
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                      child: SizedBox(
-                                        height: 220,
-                                        child: ListView.separated(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: response.imageUrls.length,
-                                          separatorBuilder: (context, index) => const SizedBox(width: 12),
-                                          itemBuilder: (context, index) {
-                                            final imageUrl = response.imageUrls[index];
-                                            return GestureDetector(
-                                              onTap: () {
-                                                showDialog(
-                                                  context: context,
-                                                  useSafeArea: false,
-                                                  builder: (_) => Scaffold(
-                                                    backgroundColor: Colors.black87,
-                                                    appBar: AppBar(
-                                                      backgroundColor: Colors.transparent,
-                                                      elevation: 0,
-                                                      actions: [
-                                                        IconButton(
-                                                          icon: const Icon(Icons.download, color: Colors.white),
-                                                          onPressed: () {
-                                                            _downloadImage(context, imageUrl);
-                                                          },
-                                                        ),
-                                                        IconButton(
-                                                          icon: const Icon(Icons.close, color: Colors.white),
-                                                          onPressed: () => Navigator.pop(context),
-                                                        ),
-                                                      ],
-                                                      leading: const SizedBox.shrink(),
-                                                      leadingWidth: 0,
-                                                    ),
-                                                    body: Center(
-                                                      child: InteractiveViewer(
-                                                        panEnabled: true,
-                                                        minScale: 0.5,
-                                                        maxScale: 4.0,
-                                                        child: CachedNetworkImage(
-                                                          imageUrl: imageUrl,
-                                                          fit: BoxFit.contain,
-                                                          httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
-                                                          placeholder: (context, url) => Container(
-                                                            color: Colors.grey[900],
-                                                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyan)),
-                                                          ),
-                                                          errorWidget: (context, url, error) => Container(
-                                                            color: Colors.grey[900],
-                                                            child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey)),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(12),
-                                                child: CachedNetworkImage(
-                                                  imageUrl: imageUrl,
-                                                  height: 220,
-                                                  fit: BoxFit.cover,
-                                                  alignment: Alignment.topCenter,
-                                                  httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
-                                                  placeholder: (context, url) => Container(
-                                                    height: 220,
-                                                    width: 150,
-                                                    color: Colors.grey[900],
-                                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyan)),
-                                                  ),
-                                                  errorWidget: (context, url, error) => Container(
-                                                    height: 220,
-                                                    width: 150,
-                                                    color: Colors.grey[900],
-                                                    child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey)),
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                  ],
-                                ],
-                              );
-                            },
-                            loading: () => Padding(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Overview',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const ShimmerLoading.rounded(height: 16, width: double.infinity),
-                                  const SizedBox(height: 8),
-                                  const ShimmerLoading.rounded(height: 16, width: double.infinity),
-                                  const SizedBox(height: 8),
-                                  const ShimmerLoading.rounded(height: 16, width: 250),
+                                ),
+                                const SizedBox(height: 12),
+                                if (response.imageUrls.isEmpty) ...[
+                                  const Text('No gallery images available.', style: TextStyle(color: Colors.white54)),
                                   const SizedBox(height: 24),
-                                  const Text(
-                                    'Gallery',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
+                                ] else ...[
                                   SizedBox(
                                     height: 220,
                                     child: ListView.separated(
                                       scrollDirection: Axis.horizontal,
-                                      itemCount: 3,
+                                      itemCount: response.imageUrls.length,
                                       separatorBuilder: (context, index) => const SizedBox(width: 12),
-                                      itemBuilder: (context, index) => const ShimmerLoading.rounded(height: 220, width: 150),
+                                      itemBuilder: (context, index) {
+                                        final imageUrl = response.imageUrls[index];
+                                        return GestureDetector(
+                                          onTap: () {
+                                            _showImageDialog(context, imageUrl);
+                                          },
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: CachedNetworkImage(
+                                              imageUrl: imageUrl,
+                                              height: 220,
+                                              fit: BoxFit.cover,
+                                              alignment: Alignment.topCenter,
+                                              httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
+                                              placeholder: (context, url) => Container(
+                                                height: 220,
+                                                width: 150,
+                                                color: Colors.grey[900],
+                                                child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyan)),
+                                              ),
+                                              errorWidget: (context, url, error) => Container(
+                                                height: 220,
+                                                width: 150,
+                                                color: Colors.grey[900],
+                                                child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey)),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
+                                  const SizedBox(height: 24),
                                 ],
-                              ),
+                              ],
+                            );
+                          },
+                          loading: () => Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: const [
+                                    ShimmerLoading.rounded(height: 24, width: 120),
+                                    ShimmerLoading.rounded(height: 22, width: 55),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: const ShimmerLoading.rectangular(
+                                    height: 195,
+                                    width: double.infinity,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Center(
+                                  child: ShimmerLoading.rounded(height: 5, width: 60),
+                                ),
+                                const SizedBox(height: 24),
+                                const Text(
+                                  'Gallery',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  height: 220,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: 3,
+                                    separatorBuilder: (context, index) => const SizedBox(width: 12),
+                                    itemBuilder: (context, index) => const ShimmerLoading.rounded(height: 220, width: 150),
+                                  ),
+                                ),
+                              ],
                             ),
-                            error: (e, _) => Container(
-                              margin: const EdgeInsets.only(bottom: 24),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                              ),
-                              child: Text(
-                                'Error loading RAG Overview:\n$e',
-                                style: const TextStyle(color: Colors.redAccent),
-                              ),
+                          ),
+                          error: (e, _) => Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Overview',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1E1E1E),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.white10),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.info_outline, color: Colors.orangeAccent),
+                                      const SizedBox(width: 12),
+                                      const Expanded(
+                                        child: Text(
+                                          'Could not load persona overview.',
+                                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                                        ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: () => ref.refresh(ragOverviewProvider(widget.entity.title)),
+                                        icon: const Icon(Icons.refresh, color: Colors.cyanAccent, size: 18),
+                                        label: const Text('Retry', style: TextStyle(color: Colors.cyanAccent)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                Text(
+                                  'Gallery',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Text('No gallery images available.', style: TextStyle(color: Colors.white54)),
+                                const SizedBox(height: 24),
+                              ],
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
+                    ),
 
-                      Text(
-                        'Related People & Characters',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                    // Related People & Characters Section
+                    Text(
+                      'Related People & Characters',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 12),
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final recommendationsAsync = ref.watch(entityRecommendationsNotifierProvider(widget.entity.title));
-                          return recommendationsAsync.when(
-                            data: (entities) {
-                              if (entities.isEmpty) {
-                                return const Text('No recommendations available.', style: TextStyle(color: Colors.grey));
-                              }
-                              return MasonryGridView.count(
-                                crossAxisCount: 2,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                padding: EdgeInsets.zero,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                itemCount: entities.length,
-                                itemBuilder: (context, index) {
-                                  return EntityCard(
-                                    entity: entities[index],
-                                    isFavorite: favorites.any((e) => e.id == entities[index].id),
-                                    onToggleFavorite: () {
-                                      ref.read(favoritesProvider.notifier).toggleFavorite(entities[index]);
-                                    },
-                                  );
-                                },
-                              );
-                            },
-                            loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
-                            error: (e, _) => Text('Error loading recommendations: $e', style: const TextStyle(color: Colors.redAccent)),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 80), // Padding for FAB
-                    ] else ...[
-                      const Center(
-                        child: Text(
-                          'No biography available.',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    ],
+                    ),
+                    const SizedBox(height: 12),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final recommendationsAsync = ref.watch(entityRecommendationsNotifierProvider(widget.entity.title));
+                        return recommendationsAsync.when(
+                          data: (entities) {
+                            if (entities.isEmpty) {
+                              return const Text('No recommendations available.', style: TextStyle(color: Colors.grey));
+                            }
+                            return MasonryGridView.count(
+                              crossAxisCount: 2,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: EdgeInsets.zero,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              itemCount: entities.length,
+                              itemBuilder: (context, index) {
+                                return EntityCard(
+                                  entity: entities[index],
+                                  isFavorite: favorites.any((e) => e.id == entities[index].id),
+                                  onToggleFavorite: () {
+                                    ref.read(favoritesProvider.notifier).toggleFavorite(entities[index]);
+                                  },
+                                );
+                              },
+                            );
+                          },
+                          loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                          error: (e, _) => const Text('No recommendations available.', style: TextStyle(color: Colors.grey)),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 80), // Padding for FAB
                   ],
                 ),
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-                error: (e, _) => Text(
-                  'Failed to load details: $e',
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
-
 }

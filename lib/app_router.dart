@@ -5,7 +5,6 @@ import 'features/home/presentation/screens/home_screen.dart';
 import 'features/person_details/presentation/screens/person_details_screen.dart';
 import 'features/favorites/presentation/screens/favorites_screen.dart';
 import 'features/ai_assistant/presentation/screens/chat_screen.dart';
-import 'features/search/presentation/screens/search_screen.dart';
 import 'main_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -25,12 +24,6 @@ final appRouter = GoRouter(
           path: '/', 
           pageBuilder: (context, state) => const NoTransitionPage(
             child: HomeScreen(),
-          ),
-        ),
-        GoRoute(
-          path: '/search',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: SearchScreen(),
           ),
         ),
         GoRoute(

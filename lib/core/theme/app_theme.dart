@@ -2,30 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static String? get fontFamily => GoogleFonts.cabinCondensed().fontFamily;
-
   static ThemeData get lightTheme {
-    final baseTextTheme = GoogleFonts.cabinCondensedTextTheme();
-
-    return ThemeData(
-      fontFamily: fontFamily,
+    final baseTheme = ThemeData.light();
+    return baseTheme.copyWith(
       colorScheme: ColorScheme.fromSeed(
         seedColor: const Color(0xFF6200EE),
         brightness: Brightness.light,
         primary: const Color(0xFF6200EE),
       ),
-      useMaterial3: true,
-      textTheme: baseTextTheme.apply(
-        fontFamily: fontFamily,
-        bodyColor: Colors.black87,
-        displayColor: Colors.black87,
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(baseTheme.textTheme).copyWith(
+        bodyMedium: GoogleFonts.plusJakartaSans(color: Colors.black87),
+        bodyLarge: GoogleFonts.plusJakartaSans(color: Colors.black87),
       ),
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.cabinCondensed(
+        titleTextStyle: GoogleFonts.plusJakartaSans(
           fontSize: 22,
           fontWeight: FontWeight.w600,
           color: Colors.black87,
@@ -35,37 +29,27 @@ class AppTheme {
   }
 
   static ThemeData get darkTheme {
-    final baseDarkTextTheme = GoogleFonts.cabinCondensedTextTheme(
-      ThemeData.dark().textTheme,
-    );
-
-    return ThemeData(
-      fontFamily: fontFamily,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF9B51E0),
-        brightness: Brightness.dark,
-        primary: Colors.white,
-        secondary: Colors.grey,
-        surface: const Color(0xFF121212),
+    final baseTheme = ThemeData.dark();
+    return baseTheme.copyWith(
+      scaffoldBackgroundColor: const Color(0xFF0F0F0F),
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFFE53935),
+        surface: Color(0xFF181818),
       ),
-      useMaterial3: true,
-      textTheme: baseDarkTextTheme.apply(
-        fontFamily: fontFamily,
-      ),
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(baseTheme.textTheme),
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0F0F0F),
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.cabinCondensed(
+        titleTextStyle: GoogleFonts.plusJakartaSans(
           fontSize: 22,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
       ),
-      scaffoldBackgroundColor: const Color(0xFF121212),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF181818),
         indicatorColor: Colors.white.withValues(alpha: 0.1),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -75,13 +59,13 @@ class AppTheme {
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.cabinCondensed(
+            return GoogleFonts.plusJakartaSans(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             );
           }
-          return GoogleFonts.cabinCondensed(
+          return GoogleFonts.plusJakartaSans(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: Colors.grey,
@@ -89,7 +73,7 @@ class AppTheme {
         }),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xFF1E1E1E),
+        color: const Color(0xFF181818),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),

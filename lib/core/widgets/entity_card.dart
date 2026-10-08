@@ -1,18 +1,15 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:itiproject/features/favorites/presentation/providers/favorites_provider.dart';
 import 'package:itiproject/features/favorites/presentation/widgets/save_to_collection_sheet.dart';
 import 'package:itiproject/features/home/data/models/entity_model.dart';
+import 'package:itiproject/features/home/presentation/providers/user_interests_provider.dart';
 
 class EntityCard extends ConsumerWidget {
   final KnowledgeEntity entity;
@@ -25,174 +22,6 @@ class EntityCard extends ConsumerWidget {
     required this.isFavorite,
     required this.onToggleFavorite,
   });
-
-  Future<void> _downloadImage(BuildContext context, String imageUrl) async {
-    try {
-      if (Platform.isAndroid) {
-        final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          final photosStatus = await Permission.photos.request();
-          if (!photosStatus.isGranted) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Storage permission denied')),
-              );
-            }
-            return;
-          }
-        }
-      }
-
-      final dio = Dio();
-      Directory? directory;
-
-      if (Platform.isAndroid) {
-        directory = await getExternalStorageDirectory();
-      } else if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-        directory = await getDownloadsDirectory();
-      } else {
-        directory = await getApplicationDocumentsDirectory();
-      }
-
-      if (directory == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not access storage directory')),
-          );
-        }
-        return;
-      }
-
-      String fileName = imageUrl.split('/').last;
-      String savePath = '${directory.path}${Platform.pathSeparator}$fileName';
-
-      await dio.download(imageUrl, savePath);
-
-      if (context.mounted) {
-        String successMessage = Platform.isWindows
-            ? 'Success! Image saved to your Downloads folder.'
-            : 'Image downloaded to $savePath';
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              successMessage,
-              style: const TextStyle(color: Colors.black),
-            ),
-            backgroundColor: Colors.white,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to download image: $e')));
-      }
-    }
-  }
-
-  void _showContextMenu(BuildContext context, WidgetRef ref, String? displayImage) {
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (bottomSheetContext) {
-        return Consumer(
-          builder: (sheetContext, sheetRef, child) {
-            final favorites = sheetRef.watch(favoritesProvider);
-            final isFav = favorites.any((e) => e.id == entity.id);
-
-            return SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[600],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: Icon(
-                      isFav ? Icons.bookmark : Icons.bookmark_outline,
-                      color: isFav ? Colors.redAccent : Colors.white,
-                    ),
-                    title: const Text(
-                      'Save to Collection',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                    onTap: () {
-                      Navigator.pop(bottomSheetContext);
-                      showSaveToCollectionSheet(context, entity);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.auto_awesome, color: Colors.amberAccent),
-                    title: Text(
-                      'Ask AI about ${entity.title}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                    onTap: () {
-                      Navigator.pop(bottomSheetContext);
-                      context.push('/person_chat', extra: entity);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.download, color: Colors.white),
-                    title: const Text(
-                      'Download Image',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                    onTap: () {
-                      Navigator.pop(bottomSheetContext);
-                      if (displayImage != null) {
-                        _downloadImage(context, displayImage);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('No image to download')),
-                        );
-                      }
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.share, color: Colors.white),
-                    title: const Text(
-                      'Share',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                    onTap: () {
-                      Navigator.pop(bottomSheetContext);
-                      final imageUrl = displayImage ?? '';
-                      try {
-                        // ignore: deprecated_member_use
-                        Share.share('Check out ${entity.title} on Persona!\n$imageUrl');
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Share failed.')),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 
   void _showPinterestLongPressMenu(BuildContext context, WidgetRef ref, String? displayImage) {
     HapticFeedback.mediumImpact();
@@ -263,8 +92,14 @@ class EntityCard extends ConsumerWidget {
                                         color: const Color(0xFF1E1E1E),
                                       ),
                                       errorWidget: (context, url, error) => Container(
-                                        color: const Color(0xFF1E1E1E),
-                                        child: const Icon(Icons.person_outline, color: Colors.grey),
+                                        decoration: const BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [Color(0xFF2C3E50), Color(0xFF1A1A2E)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                        ),
+                                        child: const Center(child: Icon(Icons.person_outline, color: Colors.white70, size: 40)),
                                       ),
                                     ),
                                   )
@@ -272,8 +107,14 @@ class EntityCard extends ConsumerWidget {
                                   AspectRatio(
                                     aspectRatio: entity.displayAspectRatio,
                                     child: Container(
-                                      color: const Color(0xFF1E1E1E),
-                                      child: const Icon(Icons.person_outline, color: Colors.grey, size: 40),
+                                      decoration: const BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [Color(0xFF2C3E50), Color(0xFF1A1A2E)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                      child: const Center(child: Icon(Icons.person_outline, color: Colors.white70, size: 40)),
                                     ),
                                   ),
                                 Padding(
@@ -376,6 +217,7 @@ class EntityCard extends ConsumerWidget {
                                   iconColor: Colors.greenAccent,
                                   label: 'View Profile',
                                   onTap: () {
+                                    ref.read(userInterestsProvider.notifier).recordViewedPersona(entity);
                                     Navigator.of(dialogContext).pop();
                                     context.push('/person/${Uri.encodeComponent(entity.title)}', extra: entity);
                                   },
@@ -402,76 +244,132 @@ class EntityCard extends ConsumerWidget {
     final double aspectRatio = entity.displayAspectRatio;
 
     return GestureDetector(
-      onTap: () => context.push('/person/${Uri.encodeComponent(entity.title)}', extra: entity),
+      onTap: () {
+        ref.read(userInterestsProvider.notifier).recordViewedPersona(entity);
+        context.push('/person/${Uri.encodeComponent(entity.title)}', extra: entity);
+      },
       onLongPress: () => _showPinterestLongPressMenu(context, ref, displayImage),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Hero(
-            tag: 'entity_${entity.id}',
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: aspectRatio,
-                child: (displayImage != null && displayImage.trim().isNotEmpty)
-                    ? Container(
-                        color: Colors.white,
-                        child: CachedNetworkImage(
-                          key: ValueKey<String>(displayImage),
-                          imageUrl: displayImage,
-                          fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
-                          httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
+      child: Hero(
+        tag: 'entity_${entity.id}',
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: AspectRatio(
+            aspectRatio: aspectRatio,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: (displayImage != null && displayImage.trim().isNotEmpty)
+                      ? Container(
+                          color: Colors.white,
+                          child: CachedNetworkImage(
+                            key: ValueKey<String>(displayImage),
+                            imageUrl: displayImage,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            httpHeaders: const {'User-Agent': 'StarTrackAI-Engine/2.3 (contact@startrack.ai)'},
+                            width: double.infinity,
+                            height: double.infinity,
+                            placeholder: (context, url) => Container(
+                              color: const Color(0xFF1E1E1E),
+                              width: double.infinity,
+                              height: double.infinity,
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF2C3E50), Color(0xFF1A1A2E)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              width: double.infinity,
+                              height: double.infinity,
+                              child: Center(
+                                child: CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: Colors.white12,
+                                  child: Text(
+                                    entity.title.isNotEmpty ? entity.title[0].toUpperCase() : '?',
+                                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white70),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF2C3E50), Color(0xFF1A1A2E)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
                           width: double.infinity,
                           height: double.infinity,
-                          placeholder: (context, url) => Container(
-                            color: const Color(0xFF1E1E1E),
-                            width: double.infinity,
-                            height: double.infinity,
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: const Color(0xFF1E1E1E),
-                            width: double.infinity,
-                            height: double.infinity,
-                            child: const Icon(Icons.person_outline, color: Colors.grey, size: 40),
+                          child: Center(
+                            child: CircleAvatar(
+                              radius: 28,
+                              backgroundColor: Colors.white12,
+                              child: Text(
+                                entity.title.isNotEmpty ? entity.title[0].toUpperCase() : '?',
+                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white70),
+                              ),
+                            ),
                           ),
                         ),
-                      )
-                    : Container(
-                        color: const Color(0xFF1E1E1E),
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: const Icon(
-                          Icons.person_outline,
-                          size: 50,
-                          color: Colors.grey,
-                        ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.5, 1.0],
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.85),
+                        ],
                       ),
-              ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 10,
+                  right: 10,
+                  bottom: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        entity.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (entity.description != null && entity.description!.isNotEmpty)
+                        Text(
+                          entity.description!,
+                          style: TextStyle(
+                            color: Colors.grey[300],
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  entity.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _showContextMenu(context, ref, displayImage),
-                child: const Icon(Icons.more_horiz, color: Colors.grey, size: 20),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

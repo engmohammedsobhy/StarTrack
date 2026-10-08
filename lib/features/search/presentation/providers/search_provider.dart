@@ -4,6 +4,8 @@ import 'package:itiproject/features/home/data/repositories/knowledge_repository.
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
+final homeSearchOpenProvider = StateProvider<bool>((ref) => false);
+
 final selectedFilterChipProvider = StateProvider<String>((ref) => 'All');
 
 final searchResultsProvider = FutureProvider<List<KnowledgeEntity>>((ref) async {
@@ -61,8 +63,11 @@ final searchTrendingGridProvider = FutureProvider<List<KnowledgeEntity>>((ref) a
     case 'Philosophers':
       queryTerm = 'Famous ancient modern philosophers';
       break;
+    case 'World Leaders':
+      queryTerm = 'Famous world leaders presidents statesmen';
+      break;
     case 'Historians':
-      queryTerm = 'Famous historians world leaders';
+      queryTerm = 'Famous historians historical figures';
       break;
     default:
       queryTerm = filter;
