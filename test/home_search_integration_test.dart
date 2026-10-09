@@ -75,13 +75,13 @@ void main() {
 
       // Search box is now visible
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('Search personas, professions, countries...'), findsOneWidget);
+      expect(find.text('Search personas, professions...'), findsOneWidget);
 
       // Labels are rendered directly under the search box
       expect(find.text('Athlete'), findsOneWidget);
       expect(find.text('Scientist'), findsOneWidget);
 
-      // Tap close search button
+      // Tap close search button — now it's the X inside the search box
       await tester.tap(find.byTooltip('Close Search'));
       await tester.pumpAndSettle();
 
@@ -109,13 +109,16 @@ void main() {
       // Labels under search box now show matching labels
       expect(find.text('Football Player'), findsOneWidget);
 
-      // Tap the label chip
+      // Tap the label chip — should select it as a filter, NOT fill the text field
       await tester.tap(find.text('Football Player'));
       await tester.pumpAndSettle();
 
-      // Search text field is filled with 'Football Player'
+      // After tapping a label chip, the text field is cleared (label filter takes over)
       final textField = tester.widget<TextField>(find.byType(TextField));
-      expect(textField.controller?.text, equals('Football Player'));
+      expect(textField.controller?.text, equals(''));
+
+      // The label 'Football Player' is still shown as a selected chip in the labels row
+      expect(find.text('Football Player'), findsOneWidget);
     });
   });
 }

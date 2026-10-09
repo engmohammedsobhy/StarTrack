@@ -15,9 +15,14 @@ class KnowledgeEntity {
               ? 0.75
               : 0.8;
 
-  /// Returns explicit labels or intelligently derived persona labels
-  List<String> get effectiveLabels =>
-      labels.isNotEmpty ? labels : PersonaLabelService.getLabelsForPersona(title, description);
+  /// Returns explicit labels (filtered of noise/honours) or intelligently derived persona labels
+  List<String> get effectiveLabels {
+    if (labels.isNotEmpty) {
+      final cleaned = PersonaLabelService.cleanAndFilterLabels(labels);
+      if (cleaned.isNotEmpty) return cleaned;
+    }
+    return PersonaLabelService.getLabelsForPersona(title, description);
+  }
 
   KnowledgeEntity({
     required this.id,

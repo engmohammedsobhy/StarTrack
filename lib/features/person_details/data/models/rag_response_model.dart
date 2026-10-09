@@ -181,8 +181,9 @@ class RagQueryResponse {
     }
 
     final rawLabels = (json['labels'] as List<dynamic>?)?.map((e) => e.toString()).toList();
-    final List<String> parsedLabels = (rawLabels != null && rawLabels.isNotEmpty)
-        ? rawLabels
+    final cleaned = rawLabels != null ? PersonaLabelService.cleanAndFilterLabels(rawLabels) : <String>[];
+    final List<String> parsedLabels = cleaned.isNotEmpty
+        ? cleaned
         : PersonaLabelService.getLabelsForPersona(entityName, answerText);
 
     return RagQueryResponse(

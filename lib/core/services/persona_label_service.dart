@@ -388,6 +388,262 @@ class PersonaLabelService {
       'Cinema & Film',
       'United States',
     ],
+    // Iconic Film Directors
+    'christopher nolan': [
+      'Film Director',
+      'Filmmaker',
+      'Screenwriter',
+      'Academy Award Winner',
+      'Cinema & Film',
+      'United Kingdom',
+    ],
+    'quentin tarantino': [
+      'Film Director',
+      'Filmmaker',
+      'Screenwriter',
+      'Academy Award Winner',
+      'Cinema & Film',
+      'United States',
+    ],
+    'steven spielberg': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'Academy Award Winner',
+      'United States',
+    ],
+    'martin scorsese': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'Academy Award Winner',
+      'United States',
+    ],
+    'stanley kubrick': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'United States',
+    ],
+    'james cameron': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'Academy Award Winner',
+      'Canada',
+    ],
+    'alfred hitchcock': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'United Kingdom',
+    ],
+    'hayao miyazaki': [
+      'Film Director',
+      'Filmmaker',
+      'Animation Pioneer',
+      'Cinema & Film',
+      'Japan',
+    ],
+    'ridley scott': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'United Kingdom',
+    ],
+    'denis villeneuve': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'Canada',
+    ],
+    // Philosophers
+    'aristotle': [
+      'Philosopher',
+      'Polymath',
+      'Ancient History',
+      'Philosophy',
+      'Greece',
+    ],
+    'plato': [
+      'Philosopher',
+      'Ancient History',
+      'Philosophy',
+      'Greece',
+    ],
+    'socrates': [
+      'Philosopher',
+      'Ancient History',
+      'Philosophy',
+      'Greece',
+    ],
+    'friedrich nietzsche': [
+      'Philosopher',
+      'Philosophy',
+      'Author',
+      'Germany',
+    ],
+    'rene descartes': [
+      'Philosopher',
+      'Mathematician',
+      'Philosophy',
+      'France',
+    ],
+    'immanuel kant': [
+      'Philosopher',
+      'Philosophy',
+      'Germany',
+    ],
+    'confucius': [
+      'Philosopher',
+      'Philosophy',
+      'Ancient History',
+      'China',
+    ],
+    // Authors
+    'j. k. rowling': [
+      'Author',
+      'Literature',
+      'Fantasy Fiction',
+      'United Kingdom',
+    ],
+    'jk rowling': [
+      'Author',
+      'Literature',
+      'Fantasy Fiction',
+      'United Kingdom',
+    ],
+    'j. r. r. tolkien': [
+      'Author',
+      'Literature',
+      'Fantasy Fiction',
+      'United Kingdom',
+    ],
+    'jrr tolkien': [
+      'Author',
+      'Literature',
+      'Fantasy Fiction',
+      'United Kingdom',
+    ],
+    'george orwell': [
+      'Author',
+      'Literature',
+      'Political Fiction',
+      'United Kingdom',
+    ],
+    'ernest hemingway': [
+      'Author',
+      'Nobel Laureate',
+      'Literature',
+      'United States',
+    ],
+    'mark twain': [
+      'Author',
+      'Literature',
+      'United States',
+    ],
+    'stephen king': [
+      'Author',
+      'Literature',
+      'Horror Fiction',
+      'United States',
+    ],
+    // Visual Artists
+    'michelangelo': [
+      'Visual Artist',
+      'Sculptor',
+      'Painter',
+      'Renaissance',
+      'Italy',
+    ],
+    'salvador dali': [
+      'Visual Artist',
+      'Painter',
+      'Surrealism',
+      'Spain',
+    ],
+    'claude monet': [
+      'Visual Artist',
+      'Painter',
+      'Impressionism',
+      'France',
+    ],
+    // Physicists & Scientists
+    'richard feynman': [
+      'Scientist',
+      'Theoretical Physicist',
+      'Nobel Laureate',
+      'Physics',
+      'United States',
+    ],
+    'j. robert oppenheimer': [
+      'Scientist',
+      'Theoretical Physicist',
+      'Physics',
+      'United States',
+    ],
+    'oppenheimer': [
+      'Scientist',
+      'Theoretical Physicist',
+      'Physics',
+      'United States',
+    ],
+    'niels bohr': [
+      'Scientist',
+      'Theoretical Physicist',
+      'Nobel Laureate',
+      'Physics',
+      'Denmark',
+    ],
+    // Tech & Culture
+    'akira kurosawa': [
+      'Film Director',
+      'Filmmaker',
+      'Cinema & Film',
+      'Academy Award Winner',
+      'Japan',
+    ],
+    'hideo kojima': [
+      'Video Game Creator',
+      'Gaming Legend',
+      'Cinema & Film',
+      'Japan',
+    ],
+    'napoleon': [
+      'Political Leader',
+      'Military Commander',
+      'Emperor',
+      'History',
+      'France',
+    ],
+    'napoleon bonaparte': [
+      'Political Leader',
+      'Military Commander',
+      'Emperor',
+      'History',
+      'France',
+    ],
+    'ayrton senna': [
+      'Athlete',
+      'Formula One Driver',
+      'Racing Legend',
+      'Sports',
+      'Brazil',
+    ],
+    'ronaldinho': [
+      'Athlete',
+      'Football Player',
+      'Football Legend',
+      'World Cup Champion',
+      'Brazil',
+      'Sports',
+    ],
+    'neymar': [
+      'Athlete',
+      'Football Player',
+      'Brazil',
+      'Sports',
+    ],
   };
 
   /// Returns 3-6 distinct, descriptive labels for ANY persona
@@ -444,9 +700,9 @@ class PersonaLabelService {
       'polymath': ('Polymath', 'Science'),
       'actor': ('Actor', 'Cinema & Film'),
       'actress': ('Actor', 'Cinema & Film'),
-      'film director': ('Filmmaker', 'Cinema & Film'),
+      'film director': ('Film Director', 'Cinema & Film'),
+      'director': ('Film Director', 'Cinema & Film'),
       'filmmaker': ('Filmmaker', 'Cinema & Film'),
-      'director': ('Filmmaker', 'Cinema & Film'),
       'musician': ('Musician', 'Music'),
       'singer': ('Musician', 'Music'),
       'composer': ('Musician', 'Music'),
@@ -718,9 +974,40 @@ class PersonaLabelService {
     return fallback;
   }
 
+  /// Cleans and filters a list of raw labels, removing noise, chivalric orders, and non-persona attributes
+  static List<String> cleanAndFilterLabels(List<String> rawLabels) {
+    final List<String> result = [];
+    for (final raw in rawLabels) {
+      final clean = cleanWikidataAttributeName(raw);
+      if (clean.isNotEmpty && !result.contains(clean)) {
+        result.add(clean);
+      }
+    }
+    return result;
+  }
+
   static String cleanWikidataAttributeName(String raw) {
     var clean = raw.trim();
     final lower = clean.toLowerCase();
+
+    // Block chivalric orders, decorations, titles, honours, minor medals, and noisy attributes
+    const blockedSubstrings = [
+      'order of the british empire', 'order of the', 'order of ', 'commander of',
+      'officer of the', 'member of the', 'knight bachelor', 'knight commander',
+      'dame commander', 'chevalier', 'legion of honour', 'cbe', 'obe', 'mbe', 'kbe',
+      'star of', 'cross of', 'fellow of', 'honorary', 'doctorate', 'degree',
+      'disambiguation', 'wikimedia', 'living person', 'broadcasting', 'alumnus',
+      'alumni', 'fellowship', 'human', 'male', 'female', 'person', 'notable figure',
+      'icon', 'cultural legend', 'republic', 'territory', 'district', 'borough',
+    ];
+    if (blockedSubstrings.any((b) => lower.contains(b))) {
+      return '';
+    }
+
+    if (clean.length > 30 || clean.split(' ').length >= 5) {
+      return '';
+    }
+
     if (lower == 'association football player') return 'Football Player';
     if (lower == 'association football club') return 'Football Club';
     if (lower == 'association football') return 'Football';
@@ -731,9 +1018,19 @@ class PersonaLabelService {
     if (lower == 'nobel prize in physics') return 'Nobel Prize in Physics';
     if (lower == 'nobel prize in chemistry') return 'Nobel Prize in Chemistry';
     if (lower == 'nobel peace prize') return 'Nobel Peace Prize';
-    if (lower == 'human' || lower == 'male' || lower == 'female' || lower == 'wikimedia disambiguation page' || lower == 'wikimedia list article' || lower == 'notable figure' || lower == 'icon' || lower == 'cultural legend' || lower == 'person') {
+    if (lower.contains('academy award') || lower.contains('oscar')) return 'Academy Award Winner';
+    if (lower.contains('golden globe')) return 'Golden Globe Winner';
+    if (lower.contains('bafta')) return 'BAFTA Winner';
+    if (lower.contains('grammy')) return 'Grammy Winner';
+    if (lower.contains('world cup')) return 'World Cup Champion';
+    if (lower.contains('ballon d\'or')) return 'Ballon d\'Or Winner';
+
+    // Drop generic awards/prizes/medals that are not mapped above
+    const awardEndings = ['awards', 'award', 'prize', 'medal', 'medals', 'cup', 'trophy'];
+    if (awardEndings.any((w) => lower.endsWith(w) || lower == w)) {
       return '';
     }
+
     clean = clean.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
     if (clean.isEmpty) return '';
     return clean;

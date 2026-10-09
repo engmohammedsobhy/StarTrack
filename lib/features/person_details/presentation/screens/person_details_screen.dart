@@ -310,7 +310,9 @@ class _PersonDetailsScreenState extends ConsumerState<PersonDetailsScreen> {
                         labels: displayedLabels,
                         scrollable: true,
                         onLabelTap: (label) {
-                          ref.read(searchQueryProvider.notifier).state = label;
+                          ref.read(selectedSearchLabelsProvider.notifier).state = [label];
+                          ref.read(selectedSearchLabelProvider.notifier).state = label;
+                          ref.read(searchQueryProvider.notifier).state = '';
                           ref.read(userInterestsProvider.notifier).addSearch(label);
                           ref.read(homeSearchOpenProvider.notifier).state = true;
                           context.go('/');

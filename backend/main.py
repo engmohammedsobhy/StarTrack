@@ -218,10 +218,11 @@ COMPREHENSIVE_SUPER_CATEGORIES: dict[str, tuple[str, str]] = {
     "actress": ("Actor", "Cinema & Film"),
     "comedian": ("Actor", "Cinema & Film"),
     "voice actor": ("Actor", "Cinema & Film"),
-    "film director": ("Filmmaker", "Cinema & Film"),
+    "film director": ("Film Director", "Cinema & Film"),
+    "director": ("Film Director", "Cinema & Film"),
     "filmmaker": ("Filmmaker", "Cinema & Film"),
-    "screenwriter": ("Filmmaker", "Cinema & Film"),
-    "film producer": ("Filmmaker", "Cinema & Film"),
+    "screenwriter": ("Screenwriter", "Cinema & Film"),
+    "film producer": ("Film Producer", "Cinema & Film"),
 
     # Music & Audio Arts
     "musician": ("Musician", "Music"),
@@ -316,14 +317,139 @@ MAJOR_ACCOLADES: dict[str, str] = {
     "grammy": "Grammy Winner",
     "super bowl": "Super Bowl Champion",
     "golden globe": "Golden Globe Winner",
+    "bafta": "BAFTA Winner",
+    "cannes": "Cannes Winner",
     "emmy award": "Emmy Winner",
     "tony award": "Tony Winner",
     "pulitzer": "Pulitzer Winner",
 }
 
+LABEL_TO_ICONIC_PERSONAS: dict[str, list[str]] = {
+    "film director": [
+        "Christopher Nolan", "Quentin Tarantino", "Steven Spielberg", "Martin Scorsese",
+        "Stanley Kubrick", "James Cameron", "Alfred Hitchcock", "Hayao Miyazaki",
+        "Ridley Scott", "Denis Villeneuve", "David Fincher", "Francis Ford Coppola"
+    ],
+    "filmmaker": [
+        "Christopher Nolan", "Quentin Tarantino", "Steven Spielberg", "Martin Scorsese",
+        "Stanley Kubrick", "James Cameron", "Alfred Hitchcock", "Hayao Miyazaki"
+    ],
+    "cinema & film": [
+        "Christopher Nolan", "Christian Bale", "Robert De Niro", "Cillian Murphy",
+        "Quentin Tarantino", "Steven Spielberg", "Leonardo DiCaprio", "Marilyn Monroe", "Audrey Hepburn"
+    ],
+    "philosopher": [
+        "Aristotle", "Plato", "Socrates", "Friedrich Nietzsche", "Immanuel Kant",
+        "René Descartes", "Confucius", "John Locke", "Voltaire", "Marcus Aurelius"
+    ],
+    "theoretical physicist": [
+        "Albert Einstein", "Stephen Hawking", "Richard Feynman", "J. Robert Oppenheimer",
+        "Niels Bohr", "Erwin Schrödinger", "Werner Heisenberg", "Max Planck"
+    ],
+    "physicist": [
+        "Albert Einstein", "Marie Curie", "Isaac Newton", "Nikola Tesla",
+        "Stephen Hawking", "Richard Feynman", "J. Robert Oppenheimer"
+    ],
+    "author": [
+        "William Shakespeare", "J. K. Rowling", "J. R. R. Tolkien", "George Orwell",
+        "Ernest Hemingway", "Mark Twain", "Stephen King", "Agatha Christie", "Charles Dickens", "Leo Tolstoy"
+    ],
+    "visual artist": [
+        "Leonardo da Vinci", "Vincent van Gogh", "Pablo Picasso", "Michelangelo",
+        "Salvador Dalí", "Claude Monet", "Rembrandt", "Frida Kahlo", "Andy Warhol"
+    ],
+    "entrepreneur": [
+        "Steve Jobs", "Elon Musk", "Bill Gates", "Walt Disney",
+        "Jeff Bezos", "Mark Zuckerberg", "Henry Ford", "Warren Buffett"
+    ],
+    "athlete": [
+        "Lionel Messi", "Cristiano Ronaldo", "Diego Maradona", "Pele",
+        "Michael Jordan", "Muhammad Ali", "Tom Brady", "Usain Bolt", "LeBron James", "Serena Williams"
+    ],
+    "football player": [
+        "Lionel Messi", "Cristiano Ronaldo", "Diego Maradona", "Pele",
+        "Zinedine Zidane", "Ronaldinho", "Kylian Mbappé", "Neymar"
+    ],
+    "scientist": [
+        "Albert Einstein", "Marie Curie", "Isaac Newton", "Nikola Tesla",
+        "Alan Turing", "Stephen Hawking", "Charles Darwin", "Galileo Galilei"
+    ],
+    "actor": [
+        "Christian Bale", "Cillian Murphy", "Robert De Niro", "Leonardo DiCaprio",
+        "Marilyn Monroe", "Audrey Hepburn", "Gal Gadot", "Bruce Lee", "Morgan Freeman"
+    ],
+    "musician": [
+        "Michael Jackson", "Elvis Presley", "Freddie Mercury", "Ludwig van Beethoven",
+        "Wolfgang Amadeus Mozart", "The Beatles", "Bob Dylan", "Taylor Swift"
+    ],
+    "political leader": [
+        "Abraham Lincoln", "Winston Churchill", "Mahatma Gandhi", "Nelson Mandela",
+        "Julius Caesar", "Alexander the Great", "Cleopatra", "Napoleon"
+    ],
+    "video game character": [
+        "Sonic the Hedgehog", "Mario", "Luigi", "Pac-Man", "Link", "Crash Bandicoot", "Master Chief"
+    ],
+    "nobel laureate": [
+        "Albert Einstein", "Marie Curie", "Richard Feynman", "Winston Churchill", "Nelson Mandela", "Ernest Hemingway"
+    ],
+    "world cup champion": [
+        "Lionel Messi", "Diego Maradona", "Pele", "Zinedine Zidane", "Kylian Mbappé"
+    ],
+    "academy award winner": [
+        "Christopher Nolan", "Christian Bale", "Cillian Murphy", "Robert De Niro",
+        "Quentin Tarantino", "Steven Spielberg", "Leonardo DiCaprio", "Audrey Hepburn"
+    ],
+    "japan": [
+        "Hayao Miyazaki", "Akira Kurosawa", "Hideo Kojima", "Haruki Murakami", "Shigeru Miyamoto"
+    ],
+    "france": [
+        "Napoleon", "Marie Curie", "Claude Monet", "Victor Hugo", "René Descartes", "Zinedine Zidane"
+    ],
+    "brazil": [
+        "Pele", "Ayrton Senna", "Ronaldinho", "Neymar"
+    ],
+    "argentina": [
+        "Lionel Messi", "Diego Maradona", "Che Guevara", "Jorge Luis Borges"
+    ],
+    "united kingdom": [
+        "Christopher Nolan", "Winston Churchill", "William Shakespeare", "Isaac Newton",
+        "Stephen Hawking", "Alan Turing", "Christian Bale", "Audrey Hepburn"
+    ],
+    "united states": [
+        "Abraham Lincoln", "Steve Jobs", "Muhammad Ali", "Michael Jordan",
+        "Michael Jackson", "Elvis Presley", "Walt Disney", "Nikola Tesla"
+    ],
+    "technology": [
+        "Steve Jobs", "Elon Musk", "Bill Gates", "Alan Turing", "Nikola Tesla"
+    ],
+    "sports": [
+        "Lionel Messi", "Cristiano Ronaldo", "Diego Maradona", "Pele", "Michael Jordan", "Muhammad Ali", "Tom Brady"
+    ],
+    "physics": [
+        "Albert Einstein", "Stephen Hawking", "Marie Curie", "Isaac Newton", "Richard Feynman"
+    ],
+}
+
 def clean_wikidata_attribute_name(raw: str) -> str:
     clean = raw.strip()
     lower = clean.lower()
+
+    # Block chivalric orders, decorations, titles, honours, minor medals, and noisy attributes
+    BLOCKED_SUBSTRINGS = [
+        "order of the british empire", "order of the", "order of ", "commander of",
+        "officer of the", "member of the", "knight bachelor", "knight commander",
+        "dame commander", "chevalier", "legion of honour", "cbe", "obe", "mbe", "kbe",
+        "star of", "cross of", "fellow of", "honorary", "doctorate", "degree",
+        "disambiguation", "wikimedia", "living person", "broadcasting", "alumnus",
+        "alumni", "fellowship", "human", "male", "female", "person", "notable figure",
+        "icon", "cultural legend", "republic", "territory", "district", "borough",
+    ]
+    if any(b in lower for b in BLOCKED_SUBSTRINGS):
+        return ""
+
+    if len(clean) > 30 or clean.count(" ") >= 4:
+        return ""
+
     if lower == "association football player": return "Football Player"
     if lower == "association football club": return "Football Club"
     if lower == "association football": return "Football"
@@ -331,13 +457,18 @@ def clean_wikidata_attribute_name(raw: str) -> str:
     if lower == "video game character": return "Video Game Character"
     if lower == "united states of america": return "United States"
     if lower == "argentine republic": return "Argentina"
-    if lower == "nobel prize in physics": return "Nobel Laureate"
-    if lower == "nobel prize in chemistry": return "Nobel Laureate"
-    if lower == "nobel peace prize": return "Nobel Peace Laureate"
-    if lower == "nobel prize in literature": return "Nobel Laureate"
-    if lower == "nobel prize in physiology or medicine": return "Nobel Laureate"
-    if lower in ["human", "male", "female", "wikimedia disambiguation page", "wikimedia list article", "notable figure", "icon", "cultural legend", "person"]:
+    if "nobel prize" in lower or "nobel laureate" in lower: return "Nobel Laureate"
+    if "academy award" in lower or "oscar" in lower: return "Academy Award Winner"
+    if "golden globe" in lower: return "Golden Globe Winner"
+    if "bafta" in lower: return "BAFTA Winner"
+    if "grammy" in lower: return "Grammy Winner"
+    if "world cup" in lower: return "World Cup Champion"
+    if "ballon d'or" in lower: return "Ballon d'Or Winner"
+
+    # If it ends with award/awards/prize/medal but didn't match a major accolade above, drop it
+    if any(lower.endswith(w) or lower == w for w in ["awards", "award", "prize", "medal", "medals", "cup", "trophy"]):
         return ""
+
     clean = re.sub(r"\s*\([^)]*\)", "", clean).strip()
     return clean.title() if clean.islower() else clean
 
@@ -372,7 +503,8 @@ async def extract_persona_labels_from_wikidata(
     title: str = ""
 ) -> List[str]:
     target_qids = []
-    for prop in ["P106", "P27", "P495", "P166", "P101", "P136", "P39", "P31"]:
+    # Separate core properties from awards (P166) so awards NEVER leak into general other_attrs
+    for prop in ["P106", "P27", "P495", "P101", "P136", "P39", "P31"]:
         stmts = claims.get(prop, [])
         for stmt in stmts[:3]:
             val = stmt.get("mainsnak", {}).get("datavalue", {}).get("value")
@@ -380,19 +512,35 @@ async def extract_persona_labels_from_wikidata(
                 qid = val["id"]
                 if qid not in target_qids:
                     target_qids.append(qid)
-            if len(target_qids) >= 15:
+            if len(target_qids) >= 12:
                 break
-        if len(target_qids) >= 15:
+        if len(target_qids) >= 12:
             break
 
+    # P166 awards specifically for detecting major prestigious accolades only
+    award_qids = []
+    for stmt in claims.get("P166", [])[:6]:
+        val = stmt.get("mainsnak", {}).get("datavalue", {}).get("value")
+        if isinstance(val, dict) and "id" in val:
+            qid = val["id"]
+            if qid not in award_qids:
+                award_qids.append(qid)
+
+    all_qids = list(set(target_qids + award_qids))
     resolved_items: List[str] = []
-    if target_qids:
-        resolved = await resolve_wikidata_qids(client, target_qids)
+    award_items: List[str] = []
+    if all_qids:
+        resolved = await resolve_wikidata_qids(client, all_qids)
         for q in target_qids:
             if q in resolved:
                 lbl = resolved[q]
                 if lbl and lbl not in resolved_items:
                     resolved_items.append(lbl)
+        for q in award_qids:
+            if q in resolved:
+                lbl = resolved[q]
+                if lbl and lbl not in award_items:
+                    award_items.append(lbl)
 
     super_category = None
     domain = None
@@ -401,8 +549,16 @@ async def extract_persona_labels_from_wikidata(
     accolades: List[str] = []
     other_attrs: List[str] = []
 
-    combined_text = f"{title} {desc} " + " ".join(resolved_items)
+    combined_text = f"{title} {desc} " + " ".join(resolved_items) + " " + " ".join(award_items)
     combined_lower = combined_text.lower()
+
+    # Process awards solely against MAJOR_ACCOLADES
+    for a_item in award_items:
+        lower_a = a_item.lower()
+        for ack_key, ack_val in MAJOR_ACCOLADES.items():
+            if ack_key in lower_a and ack_val not in accolades:
+                accolades.append(ack_val)
+                break
 
     for item in resolved_items:
         lower_item = item.lower()
@@ -430,7 +586,9 @@ async def extract_persona_labels_from_wikidata(
             if item not in countries:
                 countries.append(item)
         else:
-            if item not in other_attrs and item not in accolades:
+            # Only add to other_attrs if not an award and is clean/short
+            is_award_like = any(w in lower_item for w in ["award", "prize", "winner", "order", "honour", "medal", "cup", "trophy"])
+            if not is_award_like and len(item) <= 24 and item not in other_attrs and item not in accolades:
                 other_attrs.append(item)
 
     # Fallback deduction if super-category or domain not resolved
@@ -802,38 +960,41 @@ def is_valid_persona(p31_ids: list, claims: dict = None, desc: str = "", title: 
     desc_lower = (desc or "").lower()
     title_lower = (title or "").lower()
 
-    # 1. Blocked P31 check
+    # 1. Explicit blocked suffixes in title (MUST be first to block things like 'Control (video game)')
+    if any(title_lower.endswith(suffix) for suffix in [
+        "(video game)", "(game)", "(franchise)", "(series)", "(film)", "(movie)",
+        "(album)", "(song)", "(single)", "(soundtrack)", "(concept)", "(profession)",
+        "(occupation)", "(movement)", "(genre)", "(tv series)", "(television series)",
+        "(band)", "(musical group)", "(software)", "(novel)", "(book)", "(company)",
+        "(brand)", "(organization)", "(organisation)", "(city)", "(country)", "(state)"
+    ]):
+        return False
+
+    # 2. Blocked P31 check
     if any(pid in BLOCKED_P31_IDS for pid in p31_ids):
         has_human_or_char = ("Q5" in p31_ids) or any(pid in VALID_PERSONA_P31_IDS for pid in p31_ids)
         if not has_human_or_char:
             return False
 
-    # 2. Block concept keywords in description unless it is explicitly an iconic character
+    # 3. Block concept keywords in description unless it is explicitly an iconic character
     if any(kw in desc_lower for kw in BLOCKED_CONCEPT_KEYWORDS):
         if not any(ckw in desc_lower for ckw in CHARACTER_KEYWORDS):
             return False
 
-    # 3. Check for Real Human:
+    # 4. Check for Real Human:
     # In Wikidata, Q5 is human. Humans also have P569 (birth date), P21 (gender), P106 (occupation)
     if "Q5" in p31_ids:
         return True
     if "P569" in claims and ("P21" in claims or "P106" in claims):
         return True
 
-    # 4. Check for Fictional Character:
+    # 5. Check for Fictional Character:
     if any(pid in VALID_PERSONA_P31_IDS for pid in p31_ids):
         if not any(kw in desc_lower for kw in BLOCKED_CONCEPT_KEYWORDS) or any(ckw in desc_lower for ckw in CHARACTER_KEYWORDS):
             return True
 
     if any(ckw in desc_lower for ckw in CHARACTER_KEYWORDS):
         return True
-
-    # Explicit blocked suffixes in title
-    if any(title_lower.endswith(suffix) for suffix in [
-        "(video game)", "(franchise)", "(series)", "(film)", "(album)",
-        "(concept)", "(profession)", "(occupation)", "(movement)", "(genre)"
-    ]):
-        return False
 
     # Disallow all concepts, movements, professions, and non-humans
     return False
@@ -1363,9 +1524,17 @@ async def search_human_personas(q: str):
     
     async with httpx.AsyncClient(timeout=10.0) as client:
         titles = await search_wikipedia_fuzzy(client, q, limit=12)
+
+        # Match label queries to iconic personas for instant rich results
+        for l_key, l_personas in LABEL_TO_ICONIC_PERSONAS.items():
+            if clean_q == l_key or clean_q in l_key or l_key in clean_q:
+                for lp in reversed(l_personas):
+                    if lp not in titles:
+                        titles.insert(0, lp)
+
         # Search by label: find personas associated with this label/profession/attribute
         label_queries = [f"famous {clean_q}"]
-        if clean_q in ["athlete", "scientist", "actor", "musician", "political leader", "author", "visual artist", "entrepreneur", "philosopher", "nobel laureate", "world cup champion", "video game character", "football player", "physicist"]:
+        if clean_q in ["athlete", "scientist", "actor", "musician", "political leader", "author", "visual artist", "entrepreneur", "philosopher", "nobel laureate", "world cup champion", "video game character", "football player", "physicist", "film director", "filmmaker", "director"]:
             label_queries.append(f"list of {clean_q}s")
         for lq in label_queries:
             extra_titles = await search_wikipedia_fuzzy(client, lq, limit=6)
@@ -1449,7 +1618,7 @@ async def search_human_personas(q: str):
                         labels=await extract_persona_labels_from_wikidata(client, claims, desc=desc, title=clean_display_title)
                     ))
                     
-                    if len(human_results) >= 8: 
+                    if len(human_results) >= 20: 
                         break
 
         if not human_results:
@@ -1498,7 +1667,7 @@ async def search_human_personas(q: str):
                             labels=await extract_persona_labels_from_wikidata(client, claims, desc=desc, title=clean_display_title)
                         ))
                         
-                        if len(human_results) >= 8: 
+                        if len(human_results) >= 20: 
                             break
 
     if human_results:

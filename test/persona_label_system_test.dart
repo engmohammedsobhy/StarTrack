@@ -148,6 +148,38 @@ void main() {
       expect(leaders, contains('Abraham Lincoln'));
       expect(leaders, contains('Winston Churchill'));
       expect(leaders, contains('Nelson Mandela'));
+
+      final directors = PersonaLabelService.getPersonaNamesForLabel('Film Director');
+      expect(directors, contains('Christopher Nolan'));
+      expect(directors, contains('Quentin Tarantino'));
+      expect(directors, contains('Steven Spielberg'));
+
+      final philosophers = PersonaLabelService.getPersonaNamesForLabel('Philosopher');
+      expect(philosophers, contains('Aristotle'));
+      expect(philosophers, contains('Plato'));
+      expect(philosophers, contains('Socrates'));
+    });
+
+    test('Christopher Nolan has accurate labels and no chivalric orders', () {
+      final nolanLabels = PersonaLabelService.getLabelsForPersona('Christopher Nolan');
+      expect(nolanLabels, contains('Film Director'));
+      expect(nolanLabels, contains('Filmmaker'));
+      expect(nolanLabels, contains('Academy Award Winner'));
+      expect(nolanLabels, contains('Cinema & Film'));
+      expect(nolanLabels, isNot(contains('Commander of the Order of the British Empire')));
+      expect(nolanLabels, isNot(contains('Awards')));
+    });
+
+    test('cleanAndFilterLabels strips chivalric orders, decorations, and raw awards', () {
+      final filtered = PersonaLabelService.cleanAndFilterLabels([
+        'Commander of the Order of the British Empire',
+        'Awards',
+        'Empire Awards',
+        'Knight Bachelor',
+        'Film Director',
+        'Cinema & Film',
+      ]);
+      expect(filtered, equals(['Film Director', 'Cinema & Film']));
     });
   });
 
